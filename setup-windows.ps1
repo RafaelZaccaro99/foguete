@@ -1,0 +1,165 @@
+# =====================================================================
+# Apishot Platform — instalador automático pra Windows
+#
+# Roda TUDO sozinho: instala Git, Node.js e MariaDB (se faltarem),
+# clona o repositório, cria o banco local, escreve o .env, roda os
+# testes e sobe o servidor em http://localhost:3000.
+#
+# Como usar (PowerShell como ADMINISTRADOR):
+#   Set-ExecutionPolicy Bypass -Scope Process -Force; irm https://raw.githubusercontent.com/RafaelZaccaro99/foguete/claude/new-session-6qd15e/setup-windows.ps1 | iex
+#
+# Seguro rodar mais de uma vez — ele pula o que já estiver instalado.
+# =====================================================================
+
+# 'Continue' de propósito: mysql/git/npm escrevem avisos no stderr e, com 'Stop',
+# o PowerShell 5.1 abortaria o script por causa de um simples aviso. Os erros de
+# verdade são checados um a um pelo código de saída ($LASTEXITCODE).
+$ErrorActionPreference = 'Continue'
+$PastaDestino = 'C:\dev\foguete'
+$Branch       = 'claude/new-session-6qd15e'
+$DbNome       = 'apishot_local'
+$DbUsuario    = 'apishot'
+$DbSenha      = 'apishot123'
+
+function Etapa($msg)  { Write-Host "`n==> $msg" -ForegroundColor Cyan }
+function Ok($msg)     { Write-Host "    OK: $msg" -ForegroundColor Green }
+function Falha($msg)  { Write-Host "`nERRO: $msg" -ForegroundColor Red; Read-Host 'Pressione ENTER pra sair'; exit 1 }
+
+function AtualizarPath {
+  $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
+}
+
+# --- 0. Checagens básicas -------------------------------------------------
+if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+  Falha 'Rode o PowerShell como ADMINISTRADOR (menu Iniciar -> PowerShell -> botão direito -> Executar como administrador).'
+}
+try { winget --version | Out-Null } catch { Falha 'winget não encontrado. Atualize o "Instalador de Aplicativo" pela Microsoft Store e tente de novo.' }
+
+# --- 1. Git ----------------------------------------------------------------
+Etapa 'Verificando o Git'
+try { git --version | Out-Null; Ok 'Git já instalado' }
+catch {
+  winget install --id Git.Git -e --accept-source-agreements --accept-package-agreements
+  AtualizarPath
+  try { git --version | Out-Null; Ok 'Git instalado' } catch { Falha 'Git instalado mas não apareceu no PATH. Feche e reabra o PowerShell e rode o script de novo.' }
+}
+
+# --- 2. Node.js ------------------------------------------------------------
+Etapa 'Verificando o Node.js'
+try {
+  $v = (node -v) -replace 'v',''
+  if ([int]($v.Split('.')[0]) -lt 18) { throw 'versão antiga' }
+  Ok "Node.js $v já instalado"
+}
+catch {
+  winget install --id OpenJS.NodeJS.LTS -e --accept-source-agreements --accept-package-agreements
+  AtualizarPath
+  try { node -v | Out-Null; Ok 'Node.js instalado' } catch { Falha 'Node instalado mas não apareceu no PATH. Feche e reabra o PowerShell e rode o script de novo.' }
+}
+
+# --- 3. MariaDB (compatível com MySQL) --------------------------------------
+Etapa 'Verificando o banco de dados (MariaDB/MySQL)'
+function AcharMysqlExe {
+  $candidatos = @(
+    (Get-ChildItem 'C:\Program Files\MariaDB*\bin\mysql.exe' -ErrorAction SilentlyContinue),
+    (Get-ChildItem 'C:\Program Files\MySQL\*\bin\mysql.exe'  -ErrorAction SilentlyContinue)
+  ) | Where-Object { $_ } | Select-Object -First 1
+  if ($candidatos) { return $candidatos.FullName }
+  try { return (Get-Command mysql -ErrorAction Stop).Source } catch { return $null }
+}
+$MysqlExe = AcharMysqlExe
+if (-not $MysqlExe) {
+  winget install --id MariaDB.Server -e --accept-source-agreements --accept-package-agreements
+  AtualizarPath
+  $MysqlExe = AcharMysqlExe
+  if (-not $MysqlExe) { Falha 'MariaDB instalado mas o mysql.exe não foi encontrado. Reinicie o computador e rode o script de novo.' }
+  Ok 'MariaDB instalado'
+} else { Ok "banco encontrado: $MysqlExe" }
+
+# garante que o serviço está de pé
+$svc = Get-Service | Where-Object { $_.Name -match 'MariaDB|MySQL' } | Select-Object -First 1
+if ($svc -and $svc.Status -ne 'Running') { Start-Service $svc.Name; Ok "serviço $($svc.Name) iniciado" }
+
+# --- 4. Clonar (ou atualizar) o repositório ---------------------------------
+Etapa "Baixando o projeto pra $PastaDestino"
+if (Test-Path (Join-Path $PastaDestino '.git')) {
+  Push-Location $PastaDestino
+  git fetch origin $Branch
+  git checkout $Branch
+  git pull origin $Branch
+  $cloneOk = ($LASTEXITCODE -eq 0)
+  Pop-Location
+  if (-not $cloneOk) { Falha 'Não consegui atualizar o repositório. Confira sua internet e rode de novo.' }
+  Ok 'repositório já existia — atualizado'
+} else {
+  New-Item -ItemType Directory -Force -Path (Split-Path $PastaDestino) | Out-Null
+  git clone --branch $Branch https://github.com/RafaelZaccaro99/foguete.git $PastaDestino
+  if ($LASTEXITCODE -ne 0) { Falha 'git clone falhou. Confira sua internet e rode de novo.' }
+  Ok 'repositório clonado'
+}
+$App = Join-Path $PastaDestino 'apishot-platform'
+
+# --- 5. Banco de dados: criar banco, usuário e rodar o schema ---------------
+Etapa 'Configurando o banco de dados local'
+$sqlSetup = @"
+CREATE DATABASE IF NOT EXISTS $DbNome;
+CREATE USER IF NOT EXISTS '$DbUsuario'@'localhost' IDENTIFIED BY '$DbSenha';
+GRANT ALL PRIVILEGES ON $DbNome.* TO '$DbUsuario'@'localhost';
+FLUSH PRIVILEGES;
+"@
+# tenta root sem senha (padrão do MariaDB recém-instalado); se falhar, pergunta a senha
+& $MysqlExe -u root -e $sqlSetup 2>$null
+if ($LASTEXITCODE -ne 0) {
+  $senhaRoot = Read-Host 'Digite a senha do usuário root do MySQL/MariaDB (a que você definiu na instalação)'
+  & $MysqlExe -u root "-p$senhaRoot" -e $sqlSetup
+  if ($LASTEXITCODE -ne 0) { Falha 'Não consegui acessar o banco como root. Confira a senha e rode o script de novo.' }
+}
+Get-Content (Join-Path $App 'schema.sql') -Raw | & $MysqlExe -u $DbUsuario "-p$DbSenha" $DbNome
+if ($LASTEXITCODE -ne 0) { Falha 'Falhou ao rodar o schema.sql.' }
+Ok "banco $DbNome pronto (10 tabelas)"
+
+# --- 6. .env -----------------------------------------------------------------
+Etapa 'Escrevendo o .env'
+$envPath = Join-Path $App '.env'
+if (-not (Test-Path $envPath)) {
+@"
+VERIFY_TOKEN=invente_uma_senha_aqui
+WHATSAPP_TOKEN=fake_por_enquanto
+DB_HOST=localhost
+DB_USER=$DbUsuario
+DB_PASS=$DbSenha
+DB_NAME=$DbNome
+PORT=3000
+"@ | Set-Content -Path $envPath -Encoding ASCII
+  Ok '.env criado (com WHATSAPP_TOKEN falso — troque pelo token real da Meta quando tiver)'
+} else { Ok '.env já existia — mantido como está' }
+
+# --- 7. Dependências + testes -------------------------------------------------
+Etapa 'Instalando dependências (npm install)'
+Push-Location $App
+npm install
+if ($LASTEXITCODE -ne 0) { Pop-Location; Falha 'npm install falhou.' }
+Ok 'dependências instaladas'
+
+Etapa 'Rodando os testes (npm test)'
+npm test
+if ($LASTEXITCODE -ne 0) { Pop-Location; Falha 'Algum teste falhou — me mande a saída acima.' }
+Ok 'todos os testes passaram'
+Pop-Location
+
+# --- 8. Subir o servidor e abrir o navegador ----------------------------------
+Etapa 'Subindo o servidor em http://localhost:3000'
+Start-Process -FilePath 'node' -ArgumentList 'server/server.js' -WorkingDirectory $App -WindowStyle Minimized
+Start-Sleep -Seconds 3
+Start-Process 'http://localhost:3000/numeros.html'
+
+Write-Host ''
+Write-Host '=====================================================' -ForegroundColor Green
+Write-Host '  Pronto! O painel abriu no seu navegador.'            -ForegroundColor Green
+Write-Host '  Disparo:   http://localhost:3000/disparo.html'
+Write-Host '  Conversas: http://localhost:3000/conversas.html'
+Write-Host '  Números:   http://localhost:3000/numeros.html'
+Write-Host ''
+Write-Host '  Pra ligar de novo depois: dois cliques em'
+Write-Host "  $App\iniciar.bat"
+Write-Host '=====================================================' -ForegroundColor Green
