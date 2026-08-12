@@ -1,14 +1,15 @@
 # =====================================================================
-# Apishot Platform — instalador automático pra Windows
+# Apishot Platform — instalador E atualizador pra Windows (mesmo comando)
 #
 # Roda TUDO sozinho: instala Git, Node.js e MariaDB (se faltarem),
-# clona o repositório, cria o banco local, escreve o .env, roda os
-# testes e sobe o servidor em http://localhost:3000.
+# baixa/atualiza o código, cria/migra o banco local, escreve o .env,
+# roda os testes e (re)sobe o servidor em http://localhost:3000.
 #
-# Como usar (PowerShell como ADMINISTRADOR):
+# Como usar (PowerShell como ADMINISTRADOR) — o MESMO comando instala e atualiza:
 #   Set-ExecutionPolicy Bypass -Scope Process -Force; irm https://raw.githubusercontent.com/RafaelZaccaro99/foguete/claude/new-session-6qd15e/setup-windows.ps1 | iex
 #
-# Seguro rodar mais de uma vez — ele pula o que já estiver instalado.
+# Idempotente: pula o que já está instalado, migra o banco só no que falta,
+# para o servidor antigo antes de subir o novo. Rode de novo a cada atualização.
 # =====================================================================
 
 # 'Continue' de propósito: mysql/git/npm escrevem avisos no stderr e, com 'Stop',
@@ -115,17 +116,28 @@ if (-not $MysqlExe) {
 # garante que o serviço está de pé (cria do zero se o winget não tiver criado)
 GarantirServicoBanco $MysqlExe
 
-# --- 4. Clonar (ou atualizar) o repositório ---------------------------------
-Etapa "Baixando o projeto pra $PastaDestino"
+# --- 4. Parar o servidor antigo (se estiver rodando) ------------------------
+Etapa 'Parando o servidor antigo, se estiver rodando'
+try {
+  Get-CimInstance Win32_Process -Filter "Name='node.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -like '*server*server.js*' } |
+    ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+  Ok 'servidor antigo parado (ou não havia nenhum)'
+} catch { Ok 'nenhum servidor antigo pra parar' }
+
+# --- 5. Baixar (ou atualizar) o repositório ---------------------------------
+Etapa "Baixando/atualizando o projeto em $PastaDestino"
 if (Test-Path (Join-Path $PastaDestino '.git')) {
   Push-Location $PastaDestino
   git fetch origin $Branch
-  git checkout $Branch
-  git pull origin $Branch
-  $cloneOk = ($LASTEXITCODE -eq 0)
+  git checkout $Branch 2>$null
+  # reset --hard: pega exatamente a versão do servidor, sem conflito de merge.
+  # O .env não é rastreado pelo git, então NÃO é apagado (suas credenciais ficam).
+  git reset --hard "origin/$Branch"
+  $ok = ($LASTEXITCODE -eq 0)
   Pop-Location
-  if (-not $cloneOk) { Falha 'Não consegui atualizar o repositório. Confira sua internet e rode de novo.' }
-  Ok 'repositório já existia — atualizado'
+  if (-not $ok) { Falha 'Não consegui atualizar o código. Confira sua internet e rode de novo.' }
+  Ok 'código atualizado pra última versão'
 } else {
   New-Item -ItemType Directory -Force -Path (Split-Path $PastaDestino) | Out-Null
   git clone --branch $Branch https://github.com/RafaelZaccaro99/foguete.git $PastaDestino
@@ -134,7 +146,7 @@ if (Test-Path (Join-Path $PastaDestino '.git')) {
 }
 $App = Join-Path $PastaDestino 'apishot-platform'
 
-# --- 5. Banco de dados: criar banco, usuário e rodar o schema ---------------
+# --- 6. Banco de dados: criar banco, usuário e rodar o schema ---------------
 Etapa 'Configurando o banco de dados local'
 $sqlSetup = @"
 CREATE DATABASE IF NOT EXISTS $DbNome;
@@ -153,7 +165,7 @@ Get-Content (Join-Path $App 'schema.sql') -Raw | & $MysqlExe -u $DbUsuario "-p$D
 if ($LASTEXITCODE -ne 0) { Falha 'Falhou ao rodar o schema.sql.' }
 Ok "banco $DbNome pronto (10 tabelas)"
 
-# --- 6. .env -----------------------------------------------------------------
+# --- 7. .env -----------------------------------------------------------------
 Etapa 'Escrevendo o .env'
 $envPath = Join-Path $App '.env'
 if (-not (Test-Path $envPath)) {
@@ -169,7 +181,7 @@ PORT=3000
   Ok '.env criado (com WHATSAPP_TOKEN falso — troque pelo token real da Meta quando tiver)'
 } else { Ok '.env já existia — mantido como está' }
 
-# --- 7. Dependências + testes -------------------------------------------------
+# --- 8. Dependências + testes + migração --------------------------------------
 Etapa 'Instalando dependências (npm install)'
 Push-Location $App
 npm install
@@ -181,25 +193,30 @@ npm test
 if ($LASTEXITCODE -ne 0) { Pop-Location; Falha 'Algum teste falhou — me mande a saída acima.' }
 Ok 'todos os testes passaram'
 
+Etapa 'Migrando o banco (adiciona colunas novas em bancos antigos)'
+node server/migrate.js
+if ($LASTEXITCODE -ne 0) { Pop-Location; Falha 'Falhou ao migrar o banco.' }
+Ok 'banco migrado'
+
 Etapa 'Carregando os agentes-padrão (as 17 automações)'
 node server/seedAgentes.js
 if ($LASTEXITCODE -ne 0) { Pop-Location; Falha 'Falhou ao carregar os agentes-padrão.' }
 Ok 'agentes-padrão prontos'
 Pop-Location
 
-# --- 8. Subir o servidor e abrir o navegador ----------------------------------
+# --- 9. Subir o servidor e abrir o navegador ----------------------------------
 Etapa 'Subindo o servidor em http://localhost:3000'
 Start-Process -FilePath 'node' -ArgumentList 'server/server.js' -WorkingDirectory $App -WindowStyle Minimized
 Start-Sleep -Seconds 3
-Start-Process 'http://localhost:3000/numeros.html'
+Start-Process 'http://localhost:3000/'
 
 Write-Host ''
 Write-Host '=====================================================' -ForegroundColor Green
 Write-Host '  Pronto! O painel abriu no seu navegador.'            -ForegroundColor Green
-Write-Host '  Disparo:   http://localhost:3000/disparo.html'
-Write-Host '  Conversas: http://localhost:3000/conversas.html'
-Write-Host '  Números:   http://localhost:3000/numeros.html'
+Write-Host '  Tela inicial (token + resumo): http://localhost:3000/'
+Write-Host '  O menu fica na barra lateral esquerda.'
 Write-Host ''
-Write-Host '  Pra ligar de novo depois: dois cliques em'
+Write-Host '  Pra ATUALIZAR no futuro: rode este mesmo comando de novo.'
+Write-Host '  Pra ligar sem atualizar: dois cliques em'
 Write-Host "  $App\iniciar.bat"
 Write-Host '=====================================================' -ForegroundColor Green
