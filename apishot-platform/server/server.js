@@ -12,8 +12,10 @@ const templatesRoutes = require('./routes/templates');
 const campanhasRoutes = require('./routes/campanhas');
 const agentesRoutes = require('./routes/agentes');
 const naoPerturbeRoutes = require('./routes/naoPerturbe');
+const configRoutes = require('./routes/config');
 const { atualizarQualityRatingTodosNumeros } = require('./compliance');
 const { processarFilaDisparo } = require('./filaWorker');
+const { getToken, carregar: carregarToken } = require('./tokenStore');
 const { query } = require('./db');
 
 app.use('/webhook', webhookRoutes);
@@ -23,10 +25,7 @@ app.use('/templates', templatesRoutes);
 app.use('/campanhas', campanhasRoutes);
 app.use('/agentes', agentesRoutes);
 app.use('/nao-perturbe', naoPerturbeRoutes);
-
-app.get('/', (req, res) => {
-  res.send('Apishot Platform no ar. Rotas: /webhook · /numeros · /conversas · /templates · /campanhas · /agentes · /nao-perturbe');
-});
+app.use('/config', configRoutes);
 
 // captura qualquer erro que escapou dos handlers (via asyncHandler ou next(err)) —
 // sem isso, uma promise rejeitada (ex: MySQL fora do ar por um instante) derruba
@@ -39,10 +38,13 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Apishot Platform rodando na porta ${PORT}`));
 
+// carrega o token salvo (config da tela) por cima do .env, assim que o banco estiver pronto
+carregarToken().catch(() => {});
+
 // monitora quality rating de todos os números a cada 1h (e promove aquecendo → ativo)
 const UMA_HORA = 60 * 60 * 1000;
 setInterval(() => {
-  atualizarQualityRatingTodosNumeros(process.env.WHATSAPP_TOKEN).catch(console.error);
+  atualizarQualityRatingTodosNumeros(getToken()).catch(console.error);
 }, UMA_HORA);
 
 // worker da fila de disparo — intervalo lido do config no start (ajustável no banco,

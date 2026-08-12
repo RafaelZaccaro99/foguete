@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Apishot — Templates</title>
+<link rel="stylesheet" href="/style.css">
+<script defer src="/app.js"></script>
 <style>
   :root{
     --bg0:#0a0b12;--bg1:#12131d;--glass:rgba(28,30,44,.72);--line:rgba(255,255,255,.08);
@@ -38,17 +40,9 @@
 </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="hero">
-    <div class="brand">🚀 APISHOT</div>
-    <div class="nav">
-      <a href="/disparo.html">Disparo</a>
-      <a href="/conversas.html">Conversas</a>
-      <a href="/numeros.html">Números</a>
-      <a href="/templates.html" class="on">Templates</a>
-      <a href="/agentes.html">Agentes</a>
-    </div>
-  </div>
+<main class="content">
+  <div class="page-title">📋 Templates</div>
+  <div class="page-sub">Biblioteca de templates das contas conectadas, criar e clonar.</div>
 
   <div class="card">
     <h2>Biblioteca de templates</h2>
@@ -84,7 +78,7 @@
     <button onclick="clonarTemplate()">📋 Clonar</button>
     <div class="out" id="clOut">Cria o mesmo template nas contas de destino e manda pra aprovação da Meta.</div>
   </div>
-</div>
+</main>
 <script>
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));

@@ -3,11 +3,14 @@
  * Usa sempre o token do usuário de sistema próprio (.env WHATSAPP_TOKEN) —
  * nunca mais um token colado no navegador.
  */
+const { getToken } = require('./tokenStore');
+
 const GRAPH_VERSION = 'v21.0';
 const BASE = `https://graph.facebook.com/${GRAPH_VERSION}`;
 const PHFIELDS = 'id,display_phone_number,verified_name,name_status,quality_rating,messaging_limit_tier';
 
-const tokenPadrao = () => process.env.WHATSAPP_TOKEN;
+// token vem do tokenStore (config da tela > .env) — nunca mais fixo no process.env aqui.
+const tokenPadrao = () => getToken();
 
 function comToken(path, token) {
   return BASE + path + (path.includes('?') ? '&' : '?') + 'access_token=' + encodeURIComponent(token);

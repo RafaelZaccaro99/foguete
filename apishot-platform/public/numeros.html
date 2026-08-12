@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Apishot — Números</title>
+<link rel="stylesheet" href="/style.css">
+<script defer src="/app.js"></script>
 <style>
   :root{
     --bg0:#0a0b12;--bg1:#12131d;--glass:rgba(28,30,44,.72);--line:rgba(255,255,255,.08);
@@ -36,17 +38,9 @@
 </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="hero">
-    <div class="brand">🚀 APISHOT</div>
-    <div class="nav">
-      <a href="/disparo.html">Disparo</a>
-      <a href="/conversas.html">Conversas</a>
-      <a href="/numeros.html" class="on">Números</a>
-      <a href="/templates.html">Templates</a>
-      <a href="/agentes.html">Agentes</a>
-    </div>
-  </div>
+<main class="content">
+  <div class="page-title">📱 Números</div>
+  <div class="page-sub">Gestão dos números conectados: qualidade, limite, aquecimento, pausar/ativar.</div>
 
   <div class="card">
     <h2>Números conectados</h2>
@@ -57,7 +51,7 @@
     </table>
     <div class="hint">Criar e clonar templates fica na aba <a href="/templates.html" style="color:var(--go)">Templates</a>.</div>
   </div>
-</div>
+</main>
 <script>
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));

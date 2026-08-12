@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Apishot — Agentes</title>
+<link rel="stylesheet" href="/style.css">
+<script defer src="/app.js"></script>
 <style>
   :root{
     --bg0:#0a0b12;--bg1:#12131d;--glass:rgba(28,30,44,.72);--line:rgba(255,255,255,.08);
@@ -40,17 +42,9 @@
 </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="hero">
-    <div class="brand">🚀 APISHOT</div>
-    <div class="nav">
-      <a href="/disparo.html">Disparo</a>
-      <a href="/conversas.html">Conversas</a>
-      <a href="/numeros.html">Números</a>
-      <a href="/templates.html">Templates</a>
-      <a href="/agentes.html" class="on">Agentes</a>
-    </div>
-  </div>
+<main class="content">
+  <div class="page-title">🤖 Agentes</div>
+  <div class="page-sub">Crie agentes que reconhecem intenção, respondem com texto cadastrado, etiquetam e qualificam os leads.</div>
 
   <div class="card">
     <h2>➕ Novo agente</h2>
@@ -94,7 +88,7 @@
       <tbody id="tbodyLeads"><tr><td colspan="4" class="hint">Carregando…</td></tr></tbody>
     </table>
   </div>
-</div>
+</main>
 <script>
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));

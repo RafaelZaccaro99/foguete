@@ -16,8 +16,10 @@ npm test                   # revezamento, automações, curva de aquecimento, sc
 npm start                  # sobe em http://localhost:3000
 ```
 
-O painel tem 5 abas: `/disparo.html`, `/conversas.html`, `/numeros.html`,
-`/templates.html` e `/agentes.html`.
+O painel abre em `/` (tela inicial com o campo de token e um resumo) e tem barra
+lateral com: Início, Disparo, Conversas, Números, Templates e Agentes. O token do
+WhatsApp pode ser configurado direto na tela inicial (salvo no servidor, nunca no
+navegador) — ou pelo `WHATSAPP_TOKEN` do `.env` como fallback.
 
 ## Estrutura
 

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apishot — Início</title>
+<link rel="stylesheet" href="/style.css">
+<script defer src="/app.js"></script>
+<style>
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:6px}
+  .stat{background:rgba(6,7,12,.5);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .stat b{font-size:24px;display:block;color:#4ef08a}
+  .stat span{font-size:12px;color:var(--mut)}
+  .tokrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .tokrow input{flex:1;min-width:220px}
+</style>
+</head>
+<body>
+<main class="content">
+  <div class="page-title">Bem-vindo ao Apishot 🚀</div>
+  <div class="page-sub">Disparo, bot e compliance — 100% no seu servidor, sem depender de parceiro nenhum.</div>
+
+  <div class="card">
+    <h2>🔑 Token de acesso (Meta / usuário de sistema)</h2>
+    <div class="hint">Cole aqui o token do usuário de sistema próprio (começa com <code>EAAO…</code>). Ele é salvo <b>no servidor</b> — nunca fica guardado no navegador. É o que autoriza sincronizar números, ver templates e disparar.</div>
+    <div class="tokrow" style="margin-top:12px">
+      <input type="password" id="token" placeholder="Cole o token aqui (EAAO...)">
+      <button onclick="salvarToken()">💾 Salvar</button>
+      <button class="ghost" onclick="testarToken()">🩺 Testar</button>
+    </div>
+    <div id="tokStatus" class="hint"></div>
+    <div class="out" id="tokOut" style="display:none"></div>
+  </div>
+
+  <div class="card">
+    <h2>📊 Resumo</h2>
+    <div class="grid" id="stats">
+      <div class="stat"><b id="stNumeros">—</b><span>números conectados</span></div>
+      <div class="stat"><b id="stAgentes">—</b><span>agentes ativos</span></div>
+      <div class="stat"><b id="stLeads">—</b><span>leads</span></div>
+      <div class="stat"><b id="stExcluidos">—</b><span>na lista de exclusão</span></div>
+    </div>
+    <div class="hint" style="margin-top:14px">Atalhos: <a href="/disparo.html">Disparar</a> · <a href="/numeros.html">Números</a> · <a href="/agentes.html">Agentes</a> · <a href="/conversas.html">Conversas</a></div>
+  </div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+// helper local (não depende do app.js, que carrega com defer)
+async function api(path,opts){
+  const r=await fetch(path,opts);
+  const ct=r.headers.get('content-type')||'';
+  const data=ct.includes('json')?await r.json().catch(()=>({})):null;
+  if(!r.ok) throw new Error((data&&data.erro)||('HTTP '+r.status));
+  return data;
+}
+
+async function carregarStatusToken(){
+  try{
+    const s=await api('/config/token-status');
+    $('tokStatus').innerHTML=s.configurado
+      ? '✅ Token configurado ('+s.preview+') — origem: '+(s.origem==='config'?'salvo na tela':'.env')
+      : '⚠️ Nenhum token configurado ainda. Cole o token acima e salve.';
+  }catch(e){ $('tokStatus').textContent='Erro ao ler status: '+e; }
+}
+async function salvarToken(){
+  const token=$('token').value.trim();
+  if(!token){alert('Cole o token primeiro.');return;}
+  $('tokOut').style.display='block'; $('tokOut').textContent='Salvando…';
+  try{
+    await api('/config/token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})});
+    $('token').value='';
+    $('tokOut').textContent='✅ Token salvo no servidor. Testando…';
+    await testarTokenInterno(null);
+    carregarStatusToken();
+    if(window.atualizarStatusToken) window.atualizarStatusToken();
+  }catch(e){ $('tokOut').textContent='Erro ao salvar: '+e; }
+}
+async function testarToken(){
+  const token=$('token').value.trim()||null;
+  $('tokOut').style.display='block'; $('tokOut').textContent='Testando na Meta…';
+  testarTokenInterno(token);
+}
+async function testarTokenInterno(token){
+  try{
+    const r=await api('/config/testar-token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(token?{token}:{})});
+    $('tokOut').textContent='✅ Token válido — conta: '+r.nome;
+  }catch(e){ $('tokOut').textContent='❌ Token inválido ou sem permissão: '+e; }
+}
+
+async function carregarResumo(){
+  try{ const n=await api('/numeros'); $('stNumeros').textContent=n.length; }catch(e){}
+  try{ const a=await api('/agentes'); $('stAgentes').textContent=a.filter(x=>x.ativo).length; }catch(e){}
+  try{ const l=await api('/agentes/leads'); $('stLeads').textContent=l.length; }catch(e){}
+  try{ const np=await api('/nao-perturbe'); $('stExcluidos').textContent=np.total; }catch(e){}
+}
+
+carregarStatusToken();
+carregarResumo();
+</script>
+</body>
+</html>
