@@ -29,6 +29,42 @@ function AtualizarPath {
   $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
 }
 
+# O winget instala os arquivos do MariaDB mas, na instalação silenciosa, muitas vezes
+# NÃO cria nem liga o serviço do Windows — aí dá "Can't connect ... (10061)". Esta função
+# garante o serviço no ar: liga se existir parado, ou cria do zero (inicializa a pasta de
+# dados e registra o serviço) se não existir.
+function GarantirServicoBanco($mysqlExe) {
+  $svc = Get-Service -ErrorAction SilentlyContinue | Where-Object { $_.Name -match 'MariaDB|MySQL|ApishotDB' } | Select-Object -First 1
+  if ($svc -and $svc.Status -eq 'Running') { Ok "serviço do banco já rodando ($($svc.Name))"; return }
+  if ($svc) {
+    try { Start-Service $svc.Name; Start-Sleep 3; Ok "serviço $($svc.Name) iniciado"; return } catch { }
+  }
+
+  Etapa 'Criando o serviço do banco pela primeira vez'
+  $binDir    = Split-Path $mysqlExe
+  $mysqld    = Join-Path $binDir 'mysqld.exe'
+  $installDb = Join-Path $binDir 'mysql_install_db.exe'
+  $dataDir   = Join-Path (Split-Path $binDir) 'data'
+  $jaInit    = Test-Path (Join-Path $dataDir 'mysql')
+
+  if (Test-Path $installDb) {
+    # MariaDB
+    if ($jaInit) { & $mysqld '--install' 'ApishotDB' "--datadir=$dataDir" | Out-Null }
+    else         { & $installDb "--datadir=$dataDir" '--service=ApishotDB' | Out-Null }
+  } else {
+    # MySQL Oracle
+    if (-not $jaInit) { & $mysqld '--initialize-insecure' "--datadir=$dataDir" | Out-Null }
+    & $mysqld '--install' 'ApishotDB' "--datadir=$dataDir" | Out-Null
+  }
+
+  Start-Sleep 2
+  try { Start-Service ApishotDB -ErrorAction Stop } catch { cmd /c 'net start ApishotDB' | Out-Null }
+  Start-Sleep 3
+  $ok = Get-Service -ErrorAction SilentlyContinue | Where-Object { $_.Name -match 'MariaDB|MySQL|ApishotDB' -and $_.Status -eq 'Running' }
+  if (-not $ok) { Falha 'O serviço do banco foi criado mas não subiu. Reinicie o computador e rode o script de novo — se continuar, me mande o que apareceu.' }
+  Ok 'serviço do banco criado e iniciado'
+}
+
 # --- 0. Checagens básicas -------------------------------------------------
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
   Falha 'Rode o PowerShell como ADMINISTRADOR (menu Iniciar -> PowerShell -> botão direito -> Executar como administrador).'
@@ -76,9 +112,8 @@ if (-not $MysqlExe) {
   Ok 'MariaDB instalado'
 } else { Ok "banco encontrado: $MysqlExe" }
 
-# garante que o serviço está de pé
-$svc = Get-Service | Where-Object { $_.Name -match 'MariaDB|MySQL' } | Select-Object -First 1
-if ($svc -and $svc.Status -ne 'Running') { Start-Service $svc.Name; Ok "serviço $($svc.Name) iniciado" }
+# garante que o serviço está de pé (cria do zero se o winget não tiver criado)
+GarantirServicoBanco $MysqlExe
 
 # --- 4. Clonar (ou atualizar) o repositório ---------------------------------
 Etapa "Baixando o projeto pra $PastaDestino"
