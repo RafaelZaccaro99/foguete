@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apishot — Disparo</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg0:#0a0b12;--bg1:#12131d;--glass:rgba(28,30,44,.72);--line:rgba(255,255,255,.08);
+    --tx:#eef1f8;--mut:#98a1b8;--go:#25d366;--warn:#f6b73c;--bad:#ff5c6c;
+    --a1:#16c95f;--a2:#0a8f43;--gold:#ffc04a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif;color:var(--tx);
+    background:
+      radial-gradient(1100px 600px at 15% -10%,rgba(22,201,95,.22),transparent 60%),
+      radial-gradient(900px 500px at 100% 0%,rgba(10,143,67,.15),transparent 55%),
+      linear-gradient(180deg,var(--bg0),var(--bg1));
+    background-attachment:fixed;min-height:100vh;padding:28px 18px 60px;
+  }
+  .wrap{max-width:940px;margin:0 auto}
+  .hero{display:flex;flex-direction:column;align-items:center;gap:7px;margin:8px 0 4px;text-align:center}
+  .brand{font-family:'Montserrat',system-ui,sans-serif;font-weight:900;font-size:clamp(26px,6vw,38px);
+    letter-spacing:1px;color:#4ef08a;text-shadow:0 0 24px rgba(37,211,102,.4)}
+  .nav{display:flex;gap:10px;justify-content:center;margin-top:10px}
+  .nav a{color:var(--mut);text-decoration:none;font-size:13px;padding:6px 12px;border-radius:999px;border:1px solid var(--line)}
+  .nav a.on{color:var(--go);border-color:rgba(37,211,102,.35)}
+  .sub{color:var(--mut);margin:14px 0 22px;font-size:13.5px;text-align:center}
+  .card{background:var(--glass);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    border:1px solid var(--line);border-radius:18px;padding:22px;margin-bottom:16px;
+    box-shadow:0 20px 50px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.04)}
+  .card h2{font-size:15.5px;margin-bottom:14px;display:flex;align-items:center;gap:10px;letter-spacing:.2px}
+  .step{display:inline-grid;place-items:center;min-width:26px;height:26px;padding:0 7px;border-radius:8px;
+    font-size:12.5px;font-weight:800;color:#0b0713;background:linear-gradient(135deg,var(--gold),#ff9f45);box-shadow:0 4px 12px rgba(255,160,60,.35)}
+  label{display:block;font-size:12.5px;color:var(--mut);margin:12px 0 5px;font-weight:600;letter-spacing:.2px}
+  input,textarea,select{width:100%;background:rgba(6,7,12,.75);border:1px solid var(--line);border-radius:11px;
+    color:var(--tx);padding:11px 13px;font-size:14px;font-family:inherit;transition:border .15s,box-shadow .15s}
+  input:focus,textarea:focus,select:focus{outline:none;border-color:rgba(22,201,95,.6);box-shadow:0 0 0 3px rgba(22,201,95,.18)}
+  textarea{min-height:110px;font-family:ui-monospace,Menlo,monospace;font-size:13px}
+  .row{display:flex;gap:12px;flex-wrap:wrap}.row>div{flex:1;min-width:180px}
+  button{border:none;color:#fff;font-weight:700;font-size:13.5px;padding:11px 18px;border-radius:11px;cursor:pointer;
+    margin:12px 8px 0 0;transition:transform .08s,filter .15s,box-shadow .15s;
+    background:linear-gradient(135deg,var(--a1),var(--a2));box-shadow:0 8px 22px rgba(22,201,95,.35)}
+  button:hover{filter:brightness(1.08);transform:translateY(-1px)}button:active{transform:translateY(0)}
+  button:disabled{opacity:.35;cursor:not-allowed;box-shadow:none;transform:none}
+  button.go{background:linear-gradient(135deg,#1fd35f,#12a34a);box-shadow:0 10px 26px rgba(37,211,102,.4);font-size:16px;padding:13px 26px}
+  button.stop{background:linear-gradient(135deg,#ff5c6c,#d63447);box-shadow:0 8px 22px rgba(255,92,108,.35)}
+  button.ghost{background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--tx);box-shadow:none;font-weight:600}
+  button.sm{padding:8px 13px;font-size:12.5px;margin-top:8px}
+  .out{background:rgba(4,5,9,.8);border:1px solid var(--line);border-radius:12px;padding:13px 14px;margin-top:14px;
+    font-family:ui-monospace,Menlo,monospace;font-size:12.5px;white-space:pre-wrap;max-height:280px;overflow-y:auto;color:#cbd4e6;line-height:1.5}
+  .ok{color:var(--go)}.warn{color:var(--warn)}.bad{color:var(--bad)}.gold{color:var(--gold)}
+  .status{margin-top:14px;font-size:14.5px;font-weight:700}
+  .hint{font-size:12px;color:var(--mut);margin-top:6px;line-height:1.5}
+  .pill{display:inline-block;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:999px;padding:2px 10px;font-size:11.5px;color:var(--mut);margin:2px 5px 2px 0}
+  .pill.g{color:var(--go);border-color:rgba(37,211,102,.3)}.pill.w{color:var(--warn);border-color:rgba(246,183,60,.3)}.pill.b{color:var(--bad);border-color:rgba(255,92,108,.3)}
+  .bar{height:12px;border-radius:999px;background:rgba(255,255,255,.07);overflow:hidden;margin-top:14px;border:1px solid var(--line)}
+  .bar>div{height:100%;width:0;background:linear-gradient(90deg,var(--go),#7fffb0);transition:width .25s}
+  .drop{border:1.5px dashed rgba(22,201,95,.4);border-radius:12px;padding:16px;text-align:center;color:var(--mut);font-size:13px;cursor:pointer;transition:background .15s,border .15s}
+  .drop:hover{background:rgba(22,201,95,.08);border-color:rgba(22,201,95,.7)}
+  .arsrow{display:flex;gap:9px;align-items:center;margin:7px 0;font-size:13.5px;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid var(--line);flex-wrap:wrap}
+  .arsrow input[type=checkbox]{width:auto}
+  .wp-preview{background:#0b141a;border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:14px;display:none}
+  .wp-bubble{background:#202c33;color:#e9edef;border-radius:10px;border-top-left-radius:2px;padding:10px 12px;max-width:480px;font-size:13.5px;line-height:1.45}
+  .wp-var{color:#53bdeb;font-family:ui-monospace,Menlo,monospace;font-size:12.5px}
+  .wp-footer{color:#8696a0;font-size:12px;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <div class="brand">🚀 APISHOT</div>
+    <div class="nav">
+      <a href="/disparo.html" class="on">Disparo</a>
+      <a href="/conversas.html">Conversas</a>
+      <a href="/numeros.html">Números</a>
+    </div>
+  </div>
+  <div class="sub">Disparo via API oficial do WhatsApp — 100% servidor nosso, sem depender de parceiro nenhum.</div>
+
+  <div class="card">
+    <h2><span class="step">1</span> Seus números — marque quem vai disparar 🔫</h2>
+    <div class="hint">Um ou vários. O revezamento divide a lista entre eles — cada lead vai pra UM número só.</div>
+    <button class="ghost sm" onclick="sincronizarNumeros()">🔭 Sincronizar números</button>
+    <button class="ghost sm" onclick="marcarTodos(true)">Marcar todos</button>
+    <button class="ghost sm" onclick="marcarTodos(false)">Limpar</button>
+    <div id="numerosPick" style="margin-top:8px">Carregando números…</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step">2</span> Template aprovado</h2>
+    <label>Escolha o template</label>
+    <select id="tpl"><option>carregando…</option></select>
+    <div class="wp-preview" id="tplPreview"></div>
+    <div id="tplDispon"></div>
+    <div id="mediaBox" style="display:none;margin-top:12px">
+      <label>🖼️ Este template tem mídia no topo. Suba o arquivo (uma vez, vale pra campanha toda):</label>
+      <div class="drop" onclick="document.getElementById('mediaFile').click()">📎 Clique pra escolher a imagem/vídeo/PDF</div>
+      <input type="file" id="mediaFile" accept="image/*,video/*,application/pdf" style="display:none">
+      <label style="margin-top:12px">…ou cole um link https direto do arquivo</label>
+      <input type="text" id="mediaUrl" placeholder="https://.../arquivo.jpg">
+    </div>
+    <div id="extraBox" style="display:none;margin-top:12px">
+      <label>Variáveis extras do corpo — {{1}} já é o nome; separe o resto por ponto e vírgula</label>
+      <input type="text" id="bodyExtra" placeholder="valor de {{2}}; valor de {{3}}">
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step">3</span> Teste (1 antes dos milhares)</h2>
+    <label>Número de teste (DDD + número — o 55 entra sozinho)</label>
+    <input type="text" id="testNum" placeholder="11999998888">
+    <button onclick="teste()">📨 Enviar teste</button>
+    <div class="out" id="testOut">Aguardando teste…</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step">4</span> Lista de leads</h2>
+    <label>Suba um arquivo CSV/Excel (.csv)</label>
+    <div class="drop" id="drop" onclick="document.getElementById('csv').click()">📂 Clique aqui ou arraste um CSV — acha sozinho a coluna do telefone e a do nome</div>
+    <input type="file" id="csv" accept=".csv,.txt" style="display:none">
+    <label style="margin-top:16px">…ou cole a lista (um por linha — aceita "nome;numero" ou só o número)</label>
+    <textarea id="lista" placeholder="11999998888&#10;Farmácia Central;11988887777"></textarea>
+    <button class="ghost" onclick="validarLista()">✅ Validar lista</button>
+    <div class="out" id="listaOut">Aguardando lista…</div>
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line)">
+      <label>📚 Biblioteca de listas — salve por nome e reuse quando quiser</label>
+      <div class="row">
+        <div style="flex:2;min-width:200px"><input type="text" id="listaNome" placeholder="Nome (ex: Farmácias SP)"></div>
+        <div style="flex:1;min-width:150px"><button onclick="salvarListaNome()" style="margin-top:0;width:100%">💾 Salvar lista atual</button></div>
+      </div>
+      <div id="listasSalvas" style="margin-top:10px"></div>
+    </div>
+    <label style="display:flex;gap:8px;align-items:center;font-size:13px;color:var(--tx);margin-top:12px">
+      <input type="checkbox" id="skipSent" style="width:auto" checked> Não repetir quem já recebeu antes
+    </label>
+  </div>
+
+  <div class="card">
+    <h2><span class="step">5</span> Fogo 🔥</h2>
+    <label>Nome da campanha</label>
+    <input type="text" id="campanhaNome" placeholder="ex: Disparo iFood 05/08">
+    <div id="cotasBox" class="hint">Crie a campanha (abaixo) pra editar a cota de cada canhão, se quiser.</div>
+    <button onclick="criarCampanha()">1️⃣ Criar campanha + revezamento</button>
+    <button id="btnMedia" onclick="subirMidia()" disabled>2️⃣ Subir mídia pros canhões</button>
+    <button id="btnEnfileirar" onclick="enfileirar()" disabled>3️⃣ Enfileirar lista</button>
+    <button class="go" id="btnIniciar" onclick="iniciar()" disabled>🚀 4️⃣ Iniciar disparo</button>
+    <button class="stop" id="btnPausar" onclick="pausar()" disabled>⏸️ Pausar</button>
+    <button class="ghost" id="btnRelatorio" onclick="baixarRelatorio()" disabled>📄 Relatório CSV</button>
+    <div class="bar"><div id="barFill"></div></div>
+    <div class="status" id="prog"></div>
+    <div class="out" id="fireOut">Aguardando ordem de fogo…</div>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+function log(el,m,c){$(el).innerHTML+='\n'+(c?'<span class="'+c+'">'+esc(m)+'</span>':esc(m));$(el).scrollTop=$(el).scrollHeight;}
+function setOut(el,m){$(el).innerHTML=esc(m);}
+
+async function api(path,opts){
+  const r=await fetch(path,opts);
+  const ct=r.headers.get('content-type')||'';
+  const data=ct.includes('json')?await r.json().catch(()=>({})):null;
+  if(!r.ok) throw new Error((data&&data.erro)||('HTTP '+r.status));
+  return data;
+}
+
+let numeros=[], grupos=[], campanhaId=null, mapManual={}, cotas={}, poolAtual=[];
+
+async function carregarNumeros(){
+  numeros=await api('/numeros');
+  renderNumeros();
+}
+function renderNumeros(){
+  const box=$('numerosPick');
+  if(!numeros.length){box.textContent='Nenhum número cadastrado ainda. Clique em "Sincronizar números".';return;}
+  box.innerHTML=numeros.map(n=>
+    '<label class="arsrow"><input type="checkbox" class="numChk" value="'+n.id+'" checked>'+
+    '<b>'+esc(n.label)+'</b>'+
+    '<span class="pill '+(n.status==='ativo'?'g':(n.status==='pausado'?'b':'w'))+'">'+esc(n.status)+'</span>'+
+    '<span class="pill '+(n.quality_rating==='GREEN'?'g':(n.quality_rating==='RED'?'b':''))+'">'+esc(n.quality_rating||'—')+'</span>'+
+    '<span class="pill">limite '+n.limite_diario+'/dia</span></label>'
+  ).join('');
+  box.querySelectorAll('.numChk').forEach(c=>c.onchange=renderDisponibilidade);
+}
+function marcarTodos(v){document.querySelectorAll('.numChk').forEach(c=>c.checked=v);renderDisponibilidade();}
+async function sincronizarNumeros(){
+  $('numerosPick').textContent='Sincronizando com a Meta…';
+  try{ const r=await api('/numeros/sync',{method:'POST'}); await carregarNumeros(); alert('Sincronizado: '+r.novos+' novo(s), '+r.atualizados+' atualizado(s).'); }
+  catch(e){ alert('Erro ao sincronizar: '+e); await carregarNumeros(); }
+}
+
+async function carregarTemplates(){
+  grupos=await api('/numeros/templates');
+  const sel=$('tpl'); sel.innerHTML='';
+  if(!grupos.length){ sel.innerHTML='<option>— nenhum template aprovado (sincronize os números primeiro) —</option>'; return; }
+  grupos.forEach((g,i)=>{const o=document.createElement('option');o.value=i;o.textContent=g.nome+' ['+g.idioma+'] '+g.categoria+' — '+g.variantes.length+' conta(s)';sel.appendChild(o);});
+  tplChanged();
+}
+function grupoSel(){ return grupos[parseInt($('tpl').value)]||null; }
+function varianteBase(g){ return g?g.variantes[0]:null; }
+function tplVars(components){ const b=(components||[]).find(c=>c.type==='BODY'); const m=(b?.text||'').match(/\{\{\d+\}\}/g); return m?new Set(m).size:0; }
+function tplHeader(components){ return (components||[]).find(c=>c.type==='HEADER')||null; }
+function headerFmt(components){ const h=tplHeader(components); return h?(h.format||'TEXT').toUpperCase():null; }
+function precisaMidia(components){ return ['IMAGE','VIDEO','DOCUMENT'].includes(headerFmt(components)); }
+
+function tplChanged(){ mapManual={}; cotas={}; renderPreview(); renderDisponibilidade(); resetCampanha(); }
+$('tpl').addEventListener('change',tplChanged);
+
+function renderPreview(){
+  const box=$('tplPreview'); const g=grupoSel(); const v=varianteBase(g);
+  if(!v){ box.style.display='none'; box.innerHTML=''; return; }
+  box.style.display='block';
+  const comps=v.components||[];
+  const body=comps.find(c=>c.type==='BODY');
+  const header=comps.find(c=>c.type==='HEADER');
+  const footer=comps.find(c=>c.type==='FOOTER');
+  let h='<div class="wp-bubble">';
+  if(header){
+    if(['IMAGE','VIDEO','DOCUMENT'].includes(header.format)) h+='<div class="hint">'+esc(header.format)+' no topo</div>';
+    else if(header.text) h+='<div style="font-weight:700;margin-bottom:6px">'+esc(header.text)+'</div>';
+  }
+  h+='<div>'+esc(body?.text||'(sem corpo)').replace(/\{\{(\d+)\}\}/g,'<span class="wp-var">{{$1}}</span>').replace(/\n/g,'<br>')+'</div>';
+  if(footer?.text) h+='<div class="wp-footer">'+esc(footer.text)+'</div>';
+  h+='</div>';
+  box.innerHTML=h;
+  const isMedia=precisaMidia(comps);
+  $('mediaBox').style.display=isMedia?'block':'none';
+  $('extraBox').style.display=tplVars(comps)>1?'block':'none';
+}
+
+function numerosMarcados(){
+  return [...document.querySelectorAll('.numChk:checked')].map(c=>numeros.find(n=>String(n.id)===c.value)).filter(Boolean);
+}
+
+function renderDisponibilidade(){
+  const box=$('tplDispon'); const g=grupoSel();
+  if(!g){ box.innerHTML=''; return; }
+  const wabasCom=new Set(g.variantes.map(v=>v.waba));
+  let h='<div class="hint" style="margin-top:14px"><b>Quem consegue disparar este template:</b></div>';
+  numerosMarcados().forEach(n=>{
+    if(wabasCom.has(n.waba_id)){
+      h+='<div style="font-size:12.5px;margin:4px 0" class="ok">✅ '+esc(n.label)+'</div>';
+      return;
+    }
+    const outros=grupos.filter(gr=>gr!==g && gr.variantes.some(v=>v.waba===n.waba_id));
+    if(outros.length){
+      const mk=mapManual[n.id];
+      h+='<div style="font-size:12.5px;margin:4px 0" class="warn">🔁 '+esc(n.label)+' — não tem "'+esc(g.nome)+'", escolha um template desta conta:</div>';
+      h+='<div style="margin:2px 0 10px 22px"><select class="mapSel" data-nid="'+n.id+'" style="max-width:560px;font-size:12.5px;padding:7px 10px">'+
+        '<option value="">— pular este número —</option>'+
+        outros.map(o=>{const k=o.nome+'|'+o.idioma;return '<option value="'+esc(k)+'"'+(mk===k?' selected':'')+'>'+esc(o.nome)+' ['+esc(o.idioma)+']</option>';}).join('')+
+        '</select></div>';
+    }else{
+      h+='<div style="font-size:12.5px;margin:4px 0" class="bad">🚫 '+esc(n.label)+' — sem template aprovado nesta conta (pulado)</div>';
+    }
+  });
+  box.innerHTML=h;
+  box.querySelectorAll('.mapSel').forEach(s=>s.onchange=()=>{
+    if(s.value){ const [nome,idioma]=s.value.split('|'); mapManual[s.dataset.nid]={nome,idioma}; }
+    else delete mapManual[s.dataset.nid];
+  });
+}
+
+function normaliza(raw){let d=String(raw).replace(/\D/g,'');if(!d)return null;if(d.startsWith('0'))d=d.replace(/^0+/,'');if(!d.startsWith('55')){if(d.length===10||d.length===11)d='55'+d;else return null;}if(d.length<12||d.length>13)return null;return d;}
+
+function lerCSV(file){
+  if(!file)return;
+  const rd=new FileReader();
+  rd.onload=e=>{
+    const txt=e.target.result;
+    const rows=txt.split(/\r?\n/).filter(r=>r.trim());
+    if(!rows.length){setOut('listaOut','Arquivo vazio.');return;}
+    const delim=(rows[0].match(/;/g)||[]).length >= (rows[0].match(/,/g)||[]).length ? ';' : ',';
+    const grid=rows.map(r=>r.split(delim).map(c=>c.trim().replace(/^"|"$/g,'')));
+    const head=grid[0].map(c=>c.toLowerCase());
+    const hasHeader=head.some(c=>/nome|name|telefone|phone|celular|whats|contato|numero|número/.test(c));
+    const body=hasHeader?grid.slice(1):grid;
+    let phoneCol=0,best=-1;
+    for(let c=0;c<grid[0].length;c++){
+      let score=0; body.slice(0,50).forEach(r=>{const v=(r[c]||'').replace(/\D/g,'');if(v.length>=10&&v.length<=13)score++;});
+      if(score>best){best=score;phoneCol=c;}
+    }
+    let nameCol=-1;
+    if(hasHeader){head.forEach((c,i)=>{if(nameCol<0&&/nome|name|contato|farm|raz/.test(c))nameCol=i;});}
+    if(nameCol<0){for(let c=0;c<grid[0].length;c++){if(c!==phoneCol){const txtish=body.slice(0,20).some(r=>/[a-zA-Zà-ú]{3,}/.test(r[c]||''));if(txtish){nameCol=c;break;}}}}
+    const linhas=body.map(r=>{const num=r[phoneCol]||'';const nome=nameCol>=0?(r[nameCol]||''):'';return (nome?nome+';':'')+num;}).filter(Boolean);
+    $('lista').value=linhas.join('\n');
+    setOut('listaOut','CSV lido: '+body.length+' linhas. Clique em "Validar lista".');
+    validarLista();
+  };
+  rd.readAsText(file,'UTF-8');
+}
+$('csv').addEventListener('change',()=>lerCSV($('csv').files[0]));
+const dz=$('drop');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.style.background='rgba(22,201,95,.12)';});
+dz.addEventListener('dragleave',()=>dz.style.background='');
+dz.addEventListener('drop',e=>{e.preventDefault();dz.style.background='';if(e.dataTransfer.files[0])lerCSV(e.dataTransfer.files[0]);});
+
+function parseLista(){
+  const rows=$('lista').value.split(/\n+/).map(l=>l.trim()).filter(Boolean);
+  const seen=new Set();const ok=[];let inval=0,dup=0;
+  for(const r of rows){
+    const parts=r.split(/[;,\t]/).map(s=>s.trim());
+    let nome='',num='';
+    if(parts.length>=2&&/\d{8,}/.test(parts[parts.length-1])){num=parts[parts.length-1];nome=parts.slice(0,-1).join(' ');}
+    else num=parts[0];
+    const n=normaliza(num);
+    if(!n){inval++;continue;}
+    if(seen.has(n)){dup++;continue;}
+    seen.add(n);ok.push({nome,telefone:n});
+  }
+  return {ok,inval,dup};
+}
+let lastVal=null, leads=[];
+function validarLista(){
+  lastVal=parseLista(); leads=lastVal.ok;
+  setOut('listaOut','✅ Válidos: '+lastVal.ok.length+'   ✗ Inválidos: '+lastVal.inval+'   ♻️ Duplicados removidos: '+lastVal.dup+
+    '\n\nAmostra: '+lastVal.ok.slice(0,5).map(l=>l.telefone+(l.nome?' ('+l.nome+')':'')).join(', '));
+}
+
+let listasSalvas={};
+try{ listasSalvas=JSON.parse(localStorage.getItem('apishot_listas')||'{}'); }catch(e){}
+function persistListas(){ try{ localStorage.setItem('apishot_listas',JSON.stringify(listasSalvas)); }catch(e){} }
+function salvarListaNome(){
+  const nome=$('listaNome').value.trim(); if(!nome){alert('Dá um nome pra lista.');return;}
+  const text=$('lista').value.trim(); if(!text){alert('Cole ou suba uma lista primeiro.');return;}
+  const {ok}=parseLista();
+  listasSalvas[nome]={text,count:ok.length,ts:new Date().toLocaleDateString('pt-BR')};
+  persistListas(); renderListasSalvas(); $('listaNome').value='';
+  setOut('listaOut','📚 Lista "'+nome+'" salva com '+ok.length+' números válidos.');
+}
+function carregarLista(nome){ const L=listasSalvas[nome]; if(!L)return; $('lista').value=L.text; validarLista(); }
+function excluirLista(nome){ if(confirm('Excluir a lista "'+nome+'"?')){ delete listasSalvas[nome]; persistListas(); renderListasSalvas(); } }
+function renderListasSalvas(){
+  const box=$('listasSalvas'); const names=Object.keys(listasSalvas);
+  if(!names.length){ box.innerHTML='<div class="hint">Nenhuma lista salva ainda.</div>'; return; }
+  box.innerHTML=names.map((n,i)=>'<div class="arsrow"><b>'+esc(n)+'</b> <span class="pill">'+(listasSalvas[n].count||0)+' números</span>'+
+    '<span style="flex:1"></span><button class="ghost sm" data-load="'+i+'" style="margin:0">📂 Carregar</button> <button class="ghost sm" data-del="'+i+'" style="margin:0">🗑</button></div>').join('');
+  box.querySelectorAll('[data-load]').forEach(b=>b.onclick=()=>carregarLista(names[+b.dataset.load]));
+  box.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>excluirLista(names[+b.dataset.del]));
+}
+renderListasSalvas();
+
+async function teste(){
+  const g=grupoSel(); if(!g){setOut('testOut','Escolhe um template.');return;}
+  const n=normaliza($('testNum').value); if(!n){setOut('testOut','Número inválido.');return;}
+  const marcado=numerosMarcados()[0];
+  if(!marcado){setOut('testOut','Marca pelo menos 1 número.');return;}
+  setOut('testOut','Enviando teste via '+marcado.label+'…');
+  try{
+    const r=await api('/campanhas/teste-envio',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      numero_id:marcado.id, telefone:n, nome:'Teste', template_nome:g.nome, template_idioma:g.idioma,
+      media_url:($('mediaUrl')&&$('mediaUrl').value.trim())||undefined,
+    })});
+    log('testOut','ENVIADO ✅ id '+(r.messages?.[0]?.id||'?'),'ok');
+  }catch(e){ log('testOut','ERRO: '+e,'bad'); }
+}
+
+function resetCampanha(){
+  campanhaId=null; poolAtual=[];
+  $('btnMedia').disabled=true; $('btnEnfileirar').disabled=true; $('btnIniciar').disabled=true; $('btnPausar').disabled=true; $('btnRelatorio').disabled=true;
+  $('cotasBox').innerHTML='Crie a campanha (abaixo) pra editar a cota de cada canhão, se quiser.';
+  $('barFill').style.width='0%'; $('prog').innerHTML=''; setOut('fireOut','Aguardando ordem de fogo…');
+}
+
+async function criarCampanha(){
+  const g=grupoSel(); if(!g){alert('Escolhe um template.');return;}
+  const marcados=numerosMarcados(); if(!marcados.length){alert('Marca pelo menos 1 número.');return;}
+  const nome=$('campanhaNome').value.trim()||g.nome;
+  const mapeamento_manual={}; Object.entries(mapManual).forEach(([nid,v])=>mapeamento_manual[nid]=v);
+  try{
+    const r=await api('/campanhas',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      nome, template_nome:g.nome, template_idioma:g.idioma,
+      numeros_marcados: marcados.map(n=>n.id),
+      mapeamento_manual, cotas_manuais: cotas,
+      media_url: ($('mediaUrl')&&$('mediaUrl').value.trim())||undefined,
+    })});
+    campanhaId=r.id; poolAtual=r.pool;
+    setOut('fireOut','Campanha #'+campanhaId+' criada. Revezamento:\n'+r.pool.map(c=>'  🔫 '+c.label+(c.modo==='manual'?' (template mapeado)':'')).join('\n')+
+      (r.skipped.length?'\n\n🚫 Pulados: '+r.skipped.map(s=>s.label).join(', '):''));
+    renderCotasBox();
+    $('btnEnfileirar').disabled=false;
+    const precisaMd=precisaMidia((varianteBase(g)||{}).components);
+    $('btnMedia').disabled=!precisaMd || !!($('mediaUrl').value.trim());
+  }catch(e){ alert('Erro ao criar campanha: '+e); }
+}
+
+function renderCotasBox(){
+  $('cotasBox').innerHTML='<div class="hint">Cota manual por canhão (opcional — deixe em branco pra dividir igual):</div>'+
+    poolAtual.map(c=>'<div class="arsrow"><b>'+esc(c.label)+'</b><span style="flex:1"></span><input type="number" min="0" data-nid="'+c.numero_id+'" class="cotaInp" style="width:110px" placeholder="auto"></div>').join('');
+  $('cotasBox').querySelectorAll('.cotaInp').forEach(inp=>inp.onchange=()=>{
+    if(inp.value==='') delete cotas[inp.dataset.nid]; else cotas[inp.dataset.nid]=parseInt(inp.value)||0;
+  });
+}
+
+async function subirMidia(){
+  const file=$('mediaFile').files[0];
+  if(!file){alert('Escolhe o arquivo primeiro.');return;}
+  if(!campanhaId){alert('Cria a campanha primeiro.');return;}
+  const fd=new FormData(); fd.append('arquivo',file);
+  try{
+    const r=await fetch('/campanhas/'+campanhaId+'/media',{method:'POST',body:fd});
+    const j=await r.json();
+    log('fireOut','Mídia enviada: '+JSON.stringify(j.resultados),'ok');
+    $('btnMedia').disabled=true;
+  }catch(e){ alert('Erro ao subir mídia: '+e); }
+}
+
+async function enfileirar(){
+  if(!campanhaId){alert('Cria a campanha primeiro.');return;}
+  if(!leads.length){validarLista();if(!leads.length){alert('Lista vazia/inválida.');return;}}
+  try{
+    const r=await api('/campanhas/'+campanhaId+'/contatos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      contatos:leads, ignorar_ja_enviados:$('skipSent').checked,
+    })});
+    log('fireOut','Enfileirados: '+r.enfileirados+' · já receberam antes (ignorados): '+r.ja_enviados_ignorados+(r.fora_do_plano?' · fora do plano: '+r.fora_do_plano:''),'ok');
+    $('btnIniciar').disabled=false;
+  }catch(e){ alert('Erro ao enfileirar: '+e); }
+}
+
+let pollTimer=null;
+async function iniciar(){
+  if(!campanhaId)return;
+  await api('/campanhas/'+campanhaId+'/iniciar',{method:'POST'});
+  $('btnIniciar').disabled=true; $('btnPausar').disabled=false; $('btnRelatorio').disabled=false;
+  log('fireOut','🔥 Disparo iniciado — a fila roda em segundo plano, respeitando horário/limite/não-perturbe.','ok');
+  if(pollTimer) clearInterval(pollTimer);
+  pollTimer=setInterval(atualizarProgresso,3000);
+  atualizarProgresso();
+}
+async function pausar(){
+  if(!campanhaId)return;
+  await api('/campanhas/'+campanhaId+'/pausar',{method:'POST'});
+  $('btnPausar').disabled=true; $('btnIniciar').disabled=false;
+  log('fireOut','⏸️ Campanha pausada.','warn');
+}
+async function atualizarProgresso(){
+  if(!campanhaId)return;
+  const c=await api('/campanhas/'+campanhaId);
+  const total=c.contadores.pendente+c.contadores.enviada+c.contadores.bloqueada+c.contadores.falhou;
+  const feitos=c.contadores.enviada+c.contadores.bloqueada+c.contadores.falhou;
+  const pct=total?Math.round(feitos/total*100):0;
+  $('barFill').style.width=pct+'%';
+  $('prog').innerHTML='✅ '+c.contadores.enviada+' enviadas · 🚫 '+c.contadores.bloqueada+' bloqueadas · ✗ '+c.contadores.falhou+' falharam · ⏳ '+c.contadores.pendente+' pendentes ('+pct+'%)';
+  if(c.status==='concluida'){ clearInterval(pollTimer); log('fireOut','🏁 Campanha concluída.','ok'); $('btnPausar').disabled=true; }
+}
+
+function baixarRelatorio(){ if(campanhaId) window.open('/campanhas/'+campanhaId+'/relatorio.csv','_blank'); }
+
+(async function init(){
+  await carregarNumeros();
+  await carregarTemplates();
+})();
+</script>
+</body>
+</html>

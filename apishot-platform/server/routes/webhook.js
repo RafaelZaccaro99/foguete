@@ -3,21 +3,13 @@ const router = express.Router();
 const { query } = require('../db');
 const { encontrarAutomacao } = require('../automations');
 const { adicionarNaoPerturbe } = require('../compliance');
+const { enviarTexto } = require('../graphApi');
 
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
-const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
-const GRAPH_VERSION = 'v21.0';
 
-async function enviarResposta(phoneNumberId, para, textoResposta) {
-  const url = `https://graph.facebook.com/${GRAPH_VERSION}/${phoneNumberId}/messages`;
-  const resp = await fetch(url, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messaging_product: 'whatsapp', to: para, type: 'text', text: { body: textoResposta } }),
-  });
-  const data = await resp.json();
-  if (!resp.ok) throw new Error(JSON.stringify(data));
-  return data;
+async function resolverNumeroId(phoneNumberId) {
+  const rows = await query('SELECT id FROM numeros WHERE phone_number_id = ? LIMIT 1', [phoneNumberId]);
+  return rows[0]?.id || null;
 }
 
 // controle de repetição em memória (6h) — pode virar tabela própria depois se quiser persistir entre restarts
@@ -46,13 +38,14 @@ router.post('/', async (req, res) => {
     }
 
     if (value.messages) {
+      const numeroId = await resolverNumeroId(phoneNumberId);
       for (const m of value.messages) {
         const de = m.from;
         const texto = m.text?.body || '';
 
         await query(
-          'INSERT INTO mensagens (contato_telefone, direcao, texto, criado_em) VALUES (?, "entrada", ?, NOW())',
-          [de, texto]
+          'INSERT INTO mensagens (numero_id, contato_telefone, direcao, texto, criado_em) VALUES (?, ?, "entrada", ?, NOW())',
+          [numeroId, de, texto]
         );
         await query('INSERT INTO eventos_log (evento, detalhes) VALUES (?, ?)', [
           'mensagem_recebida', JSON.stringify({ de, texto }),
@@ -75,7 +68,7 @@ router.post('/', async (req, res) => {
         }
 
         try {
-          await enviarResposta(phoneNumberId, de, automacao.resposta);
+          await enviarTexto(phoneNumberId, de, automacao.resposta);
           ultimaExecucao.set(chave, Date.now());
 
           if (automacao.acao_extra === 'adicionar_nao_perturbe') {
@@ -83,8 +76,8 @@ router.post('/', async (req, res) => {
           }
 
           await query(
-            'INSERT INTO mensagens (contato_telefone, direcao, texto, automacao_id, criado_em) VALUES (?, "saida", ?, ?, NOW())',
-            [de, automacao.resposta, automacao.id]
+            'INSERT INTO mensagens (numero_id, contato_telefone, direcao, texto, automacao_id, criado_em) VALUES (?, ?, "saida", ?, ?, NOW())',
+            [numeroId, de, automacao.resposta, automacao.id]
           );
           await query('INSERT INTO eventos_log (evento, detalhes) VALUES (?, ?)', [
             'automacao_executada', JSON.stringify({ de, automacao: automacao.id }),

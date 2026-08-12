@@ -13,6 +13,21 @@ Anota: nome do banco, usuário e senha (você vai usar no `.env`).
 Depois, no **phpMyAdmin** (também no hPanel), abre o banco criado e roda o conteúdo do
 arquivo `schema.sql` (Importar → escolhe o arquivo → Executar). Isso cria todas as tabelas.
 
+> Se você já tinha um banco criado de uma versão anterior deste pacote: `schema.sql` usa
+> `CREATE TABLE IF NOT EXISTS`, então ele NÃO adiciona colunas novas em tabelas que já
+> existem. Nesse caso, rode manualmente no phpMyAdmin (uma vez só):
+> ```sql
+> ALTER TABLE campanhas
+>   ADD COLUMN template_nome VARCHAR(160),
+>   ADD COLUMN template_idioma VARCHAR(20),
+>   ADD COLUMN categoria VARCHAR(20),
+>   ADD COLUMN mensagem_corpo TEXT,
+>   ADD COLUMN media_url VARCHAR(500) DEFAULT NULL,
+>   ADD COLUMN status ENUM('rascunho','em_andamento','pausada','concluida') NOT NULL DEFAULT 'rascunho';
+> ```
+> e depois rode `schema.sql` inteiro de novo (as tabelas novas — `campanha_numeros`,
+> `fila_disparo` — e as chaves novas de `config` entram sem problema).
+
 ## Passo 2 — Criar o subdomínio
 **Domínios → Subdomínios → Criar novo subdomínio.** Sugestão: `app.apishot.com.br`
 (separado do site principal e também separado do `bot.apishot.com.br` se esse já existir
@@ -32,19 +47,23 @@ Pelo Gerenciador de Arquivos ou FTP, sobe TODA a pasta `apishot-platform` (menos
 No painel do Node.js App → Variáveis de ambiente, adiciona TODAS as do `.env.example`:
 `VERIFY_TOKEN`, `WHATSAPP_TOKEN`, `DB_HOST`, `DB_USER`, `DB_PASS`, `DB_NAME`, `PORT`.
 
-## Passo 6 — Instalar dependências
+## Passo 6 — Instalar dependências e rodar os testes
 Botão "Executar NPM Install" no painel do Node.js App (ou terminal SSH → `npm install`
-dentro da pasta).
+dentro da pasta). Antes de reiniciar em produção, rode `npm test` (via SSH) — cobre o
+revezamento de canhões, as 17 automações e a curva de aquecimento sem precisar de banco
+nem de token real. Se algum teste falhar, não segue pro próximo passo.
 
 ## Passo 7 — Reiniciar e testar
 Reinicia a aplicação. Abre `https://app.apishot.com.br/` — deve responder
-"Apishot Platform no ar. Rotas: /webhook · /numeros · /conversas".
+"Apishot Platform no ar. Rotas: /webhook · /numeros · /conversas · /templates · /campanhas".
+O painel fica em `/disparo.html`, `/conversas.html` e `/numeros.html`.
 
-## Passo 8 — Cadastrar os números na tabela `numeros`
-Antes de disparar de verdade, cadastra cada número que vai usar via
-`POST https://app.apishot.com.br/numeros` (Postman ou o próprio painel, quando o Rafael
-montar a tela) com `phone_number_id`, `waba_id`, `label` e `limite_diario`. Sem isso, o
-monitoramento de qualidade não vai saber quais números checar.
+## Passo 8 — Sincronizar os números
+Abre `https://app.apishot.com.br/numeros.html` e clica em "🔭 Buscar de novo" — isso varre
+o Business Manager (pelo `WHATSAPP_TOKEN` do `.env`) e cadastra sozinho todos os números
+das WABAs que o usuário de sistema tem acesso, cada um começando em `aquecendo`. Não
+precisa mais cadastrar um por um na mão (dá pra fazer via `POST /numeros` também, se
+precisar de um caso avulso).
 
 ## Passo 9 — Cadastrar o webhook na Meta
 Igual ao passo a passo anterior: Callback URL = `https://app.apishot.com.br/webhook`,

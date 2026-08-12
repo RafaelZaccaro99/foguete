@@ -52,6 +52,52 @@ async function filtrarListaParaDisparo(telefones) {
   return { liberados, bloqueados, motivo: bloqueados.length ? 'lista_nao_perturbe' : null };
 }
 
+// ---------- 3b. Aquecimento e limite diário por número ----------
+// Função pura (sem DB) — dado quantos dias o número está conectado e a curva
+// configurada (% do limite normal por semana), devolve a fração (0-1) do
+// limite_diario que vale hoje. Fica separada pra dar pra testar sem banco.
+function percentualAquecimento(diasConectado, curva) {
+  const semana = Math.floor(Math.max(0, diasConectado) / 7);
+  const pct = curva[Math.min(semana, curva.length - 1)];
+  return pct / 100;
+}
+
+function parseCurva(valorConfig) {
+  return String(valorConfig || '20,40,70,100')
+    .split(',')
+    .map(s => parseFloat(s.trim()))
+    .filter(n => !isNaN(n));
+}
+
+async function limiteDiarioEfetivo(numero) {
+  if (numero.status !== 'aquecendo') return numero.limite_diario;
+  const cfg = await query('SELECT valor FROM config WHERE chave = ?', ['aquecimento_curva_pct']);
+  const curva = parseCurva(cfg[0]?.valor);
+  const diasConectado = Math.floor((Date.now() - new Date(numero.criado_em).getTime()) / 86400000);
+  return Math.round(numero.limite_diario * percentualAquecimento(diasConectado, curva));
+}
+
+async function enviosHojeDoNumero(numeroId) {
+  const rows = await query(
+    "SELECT COUNT(*) AS total FROM mensagens WHERE numero_id = ? AND direcao = 'saida' AND DATE(criado_em) = CURDATE()",
+    [numeroId]
+  );
+  return rows[0]?.total || 0;
+}
+
+async function quotaRestante(numero) {
+  const efetivo = await limiteDiarioEfetivo(numero);
+  const enviados = await enviosHojeDoNumero(numero.id);
+  return Math.max(0, efetivo - enviados);
+}
+
+// dias de aquecimento cobertos pela curva configurada — usado pra saber quando promover pra 'ativo'
+async function diasFimAquecimento() {
+  const cfg = await query('SELECT valor FROM config WHERE chave = ?', ['aquecimento_curva_pct']);
+  const curva = parseCurva(cfg[0]?.valor);
+  return curva.length * 7;
+}
+
 // ---------- 4. Quality rating dos números (consulta a Meta) ----------
 async function consultarQualityRating(phoneNumberId, whatsappToken, graphVersion = 'v21.0') {
   const url = `https://graph.facebook.com/${graphVersion}/${phoneNumberId}?fields=quality_rating,messaging_limit_tier`;
@@ -62,7 +108,8 @@ async function consultarQualityRating(phoneNumberId, whatsappToken, graphVersion
 }
 
 async function atualizarQualityRatingTodosNumeros(whatsappToken) {
-  const numeros = await query('SELECT id, phone_number_id FROM numeros WHERE status != ?', ['pausado']);
+  const numeros = await query('SELECT id, phone_number_id, status, criado_em FROM numeros WHERE status != ?', ['pausado']);
+  const diasAquecimento = await diasFimAquecimento();
   for (const n of numeros) {
     try {
       const info = await consultarQualityRating(n.phone_number_id, whatsappToken);
@@ -73,6 +120,16 @@ async function atualizarQualityRatingTodosNumeros(whatsappToken) {
         await query('INSERT INTO eventos_log (evento, detalhes) VALUES (?, ?)', [
           'numero_pausado_qualidade_vermelha', JSON.stringify({ numero_id: n.id, phone_number_id: n.phone_number_id }),
         ]);
+        continue;
+      }
+      if (n.status === 'aquecendo') {
+        const diasConectado = Math.floor((Date.now() - new Date(n.criado_em).getTime()) / 86400000);
+        if (diasConectado >= diasAquecimento) {
+          await query('UPDATE numeros SET status = ? WHERE id = ?', ['ativo', n.id]);
+          await query('INSERT INTO eventos_log (evento, detalhes) VALUES (?, ?)', [
+            'numero_promovido_fim_aquecimento', JSON.stringify({ numero_id: n.id, phone_number_id: n.phone_number_id }),
+          ]);
+        }
       }
     } catch (erro) {
       await query('INSERT INTO eventos_log (evento, detalhes) VALUES (?, ?)', [
@@ -89,4 +146,9 @@ module.exports = {
   filtrarListaParaDisparo,
   consultarQualityRating,
   atualizarQualityRatingTodosNumeros,
+  percentualAquecimento,
+  limiteDiarioEfetivo,
+  enviosHojeDoNumero,
+  quotaRestante,
+  diasFimAquecimento,
 };

@@ -4,12 +4,14 @@
   "description": "Disparador independente + bot + compliance - Ti Ferrara",
   "main": "server/server.js",
   "scripts": {
-    "start": "node server/server.js"
+    "start": "node server/server.js",
+    "test": "node --test"
   },
   "dependencies": {
     "express": "^4.19.2",
     "mysql2": "^3.11.0",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "multer": "^2.0.0"
   },
   "engines": {
     "node": ">=18.0.0"

@@ -38,7 +38,46 @@ CREATE TABLE IF NOT EXISTS nao_perturbe (
 CREATE TABLE IF NOT EXISTS campanhas (
   id INT AUTO_INCREMENT PRIMARY KEY,
   nome VARCHAR(160) NOT NULL,
+  template_nome VARCHAR(160),
+  template_idioma VARCHAR(20),
+  categoria VARCHAR(20),
+  mensagem_corpo TEXT,                 -- snapshot do corpo do template no momento da criação (auditoria)
+  media_url VARCHAR(500) DEFAULT NULL, -- link https direto do arquivo (alternativa a subir o arquivo por canhão)
+  status ENUM('rascunho','em_andamento','pausada','concluida') NOT NULL DEFAULT 'rascunho',
   criado_em DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- pool de números resolvido na criação da campanha: quais números disparam,
+-- com qual template (o principal ou um mapeado na mão) e quanto cada um manda.
+CREATE TABLE IF NOT EXISTS campanha_numeros (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  campanha_id INT NOT NULL,
+  numero_id INT NOT NULL,
+  template_nome VARCHAR(160) NOT NULL,
+  template_idioma VARCHAR(20) NOT NULL,
+  modo ENUM('auto','manual') NOT NULL DEFAULT 'auto',
+  media_id VARCHAR(120) DEFAULT NULL,
+  cota_manual INT DEFAULT NULL,
+  ordem INT NOT NULL DEFAULT 0,
+  FOREIGN KEY (campanha_id) REFERENCES campanhas(id),
+  FOREIGN KEY (numero_id) REFERENCES numeros(id)
+);
+
+-- fila de contatos de cada campanha — o worker de disparo consome isto respeitando
+-- compliance (horário, não-perturbe) e a quota diária de cada número do pool.
+CREATE TABLE IF NOT EXISTS fila_disparo (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  campanha_id INT NOT NULL,
+  telefone VARCHAR(20) NOT NULL,
+  nome VARCHAR(120),
+  status ENUM('pendente','enviada','bloqueada','falhou') NOT NULL DEFAULT 'pendente',
+  motivo VARCHAR(60) DEFAULT NULL,
+  numero_id INT DEFAULT NULL,
+  wamid VARCHAR(120) DEFAULT NULL,
+  criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (campanha_id) REFERENCES campanhas(id),
+  FOREIGN KEY (numero_id) REFERENCES numeros(id)
 );
 
 CREATE TABLE IF NOT EXISTS mensagens (
@@ -71,5 +110,8 @@ CREATE TABLE IF NOT EXISTS config (
 INSERT INTO config (chave, valor) VALUES
   ('horario_inicio', '08:00'),
   ('horario_fim', '20:00'),
-  ('timezone', 'America/Sao_Paulo')
+  ('timezone', 'America/Sao_Paulo'),
+  ('aquecimento_curva_pct', '20,40,70,100'),
+  ('disparo_concorrencia', '8'),
+  ('disparo_intervalo_segundos', '30')
 ON DUPLICATE KEY UPDATE valor = VALUES(valor);
