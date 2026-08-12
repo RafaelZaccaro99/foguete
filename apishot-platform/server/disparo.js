@@ -79,4 +79,16 @@ function scrubTelefones(contatos, setBloqueados) {
   return { filtrados, removidos: contatos.length - filtrados.length };
 }
 
-module.exports = { resolverCanhoes, montarPlano, sequenciaCanhoes, scrubTelefones };
+// Classifica um erro da Graph API: transitório (vale re-tentar) vs permanente (desiste).
+// Puro — recebe a mensagem de erro (string) e devolve 'transitorio' ou 'permanente'.
+// Transitório: instabilidade (HTTP 5xx) e rate limit (códigos 130429/131056/80007/613).
+// Permanente: número inválido, template inexistente, etc. — re-tentar não adianta.
+function classificarErro(mensagem) {
+  const m = String(mensagem || '');
+  if (/HTTP 5\d\d/.test(m)) return 'transitorio';
+  if (/\b(130429|131056|80007|613|368)\b/.test(m)) return 'transitorio';
+  if (/rate limit|too many|temporarily|try again/i.test(m)) return 'transitorio';
+  return 'permanente';
+}
+
+module.exports = { resolverCanhoes, montarPlano, sequenciaCanhoes, scrubTelefones, classificarErro };

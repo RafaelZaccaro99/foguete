@@ -70,6 +70,22 @@ setInterval(() => {
   atualizarQualityRatingTodosNumeros(getToken()).catch(console.error);
 }, UMA_HORA);
 
+// limpeza diária do eventos_log (a tabela cresce pra sempre) — aproveita o tick horário,
+// mas só executa de fato 1x/dia (guarda a última data). Retenção configurável.
+let ultimaLimpezaLog = null;
+setInterval(async () => {
+  const hoje = new Date().toISOString().slice(0, 10);
+  if (ultimaLimpezaLog === hoje) return;
+  ultimaLimpezaLog = hoje;
+  try {
+    const cfg = await query("SELECT valor FROM config WHERE chave = 'log_retencao_dias'");
+    const dias = parseInt(cfg[0]?.valor) || 90;
+    await query('DELETE FROM eventos_log WHERE criado_em < (NOW() - INTERVAL ? DAY)', [dias]);
+  } catch (erro) {
+    console.error('Falha na limpeza do eventos_log:', erro);
+  }
+}, UMA_HORA);
+
 // worker da fila de disparo — intervalo lido do config no start (ajustável no banco,
 // só precisa reiniciar o processo pra pegar uma mudança de intervalo)
 (async () => {

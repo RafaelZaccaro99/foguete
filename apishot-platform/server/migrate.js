@@ -22,8 +22,10 @@ const COLUNAS = [
   ['campanhas', 'categoria', 'VARCHAR(20)'],
   ['campanhas', 'mensagem_corpo', 'TEXT'],
   ['campanhas', 'media_url', 'VARCHAR(500) DEFAULT NULL'],
+  ['campanhas', 'variaveis_extras', 'VARCHAR(500) DEFAULT NULL'],
   ['campanhas', 'status', "ENUM('rascunho','em_andamento','pausada','concluida') NOT NULL DEFAULT 'rascunho'"],
   ['agentes', 'chave', 'VARCHAR(60) DEFAULT NULL'],
+  ['fila_disparo', 'tentativas', 'INT NOT NULL DEFAULT 0'],
 ];
 
 async function colunaExiste(tabela, coluna) {

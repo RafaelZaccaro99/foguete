@@ -45,7 +45,12 @@ Pelo Gerenciador de Arquivos ou FTP, sobe TODA a pasta `apishot-platform` (menos
 
 ## Passo 5 — Configurar variáveis de ambiente
 No painel do Node.js App → Variáveis de ambiente, adiciona TODAS as do `.env.example`:
-`VERIFY_TOKEN`, `WHATSAPP_TOKEN`, `DB_HOST`, `DB_USER`, `DB_PASS`, `DB_NAME`, `PORT`.
+`PAINEL_SENHA`, `SESSION_SECRET`, `VERIFY_TOKEN`, `META_APP_SECRET`, `WHATSAPP_TOKEN`
+(opcional — dá pra configurar pela tela), `DB_HOST`, `DB_USER`, `DB_PASS`, `DB_NAME`, `PORT`.
+- **PAINEL_SENHA**: a senha de login do painel (você troca depois pela tela inicial).
+- **SESSION_SECRET**: uma string longa e aleatória (assina o cookie de login).
+- **META_APP_SECRET**: o "Chave secreta do aplicativo" na Meta (App → Configurações →
+  Básico). É o que valida a assinatura do webhook — **obrigatório em produção**.
 
 ## Passo 6 — Instalar dependências, testar e carregar os agentes
 Botão "Executar NPM Install" no painel do Node.js App (ou terminal SSH → `npm install`
@@ -56,10 +61,15 @@ dentro da pasta). Depois, via SSH:
   (roda uma vez só; é idempotente). Sem isso o bot não responde nada.
 
 ## Passo 7 — Reiniciar e testar
-Reinicia a aplicação. Abre `https://app.apishot.com.br/` — deve responder
-"Apishot Platform no ar. Rotas: /webhook · /numeros · /conversas · /templates · /campanhas · /agentes · /nao-perturbe".
-O painel tem 5 abas: `/disparo.html`, `/conversas.html`, `/numeros.html`,
-`/templates.html`, `/agentes.html`.
+Reinicia a aplicação. Abre `https://app.apishot.com.br/` — vai pedir a senha do painel
+(a `PAINEL_SENHA`). Depois de logar, cai na tela inicial (token + resumo). O menu fica
+na barra lateral. Abas: Início, Disparo, Conversas, Números, Templates, Agentes.
+
+> **Atualizar no futuro** (nova versão): faça primeiro um **backup do banco**
+> (phpMyAdmin → Exportar, ou SSH `mysqldump -u USER -p BANCO > backup.sql`), suba os
+> arquivos novos, e via SSH rode `npm install`, `node server/migrate.js` (adiciona
+> colunas novas sem apagar dados) e reinicie. O `migrate.js` é idempotente e preserva
+> os dados.
 
 ## Passo 8 — Sincronizar os números
 Abre `https://app.apishot.com.br/numeros.html` e clica em "🔭 Buscar de novo" — isso varre
@@ -70,8 +80,17 @@ precisar de um caso avulso).
 
 ## Passo 9 — Cadastrar o webhook na Meta
 Igual ao passo a passo anterior: Callback URL = `https://app.apishot.com.br/webhook`,
-Verify Token = o mesmo do `.env`, campo "messages" marcado.
+Verify Token = o mesmo do `.env`, campo "messages" marcado. Confirma que o
+`META_APP_SECRET` (Passo 5) é o do MESMO app — senão a validação de assinatura rejeita
+os webhooks e o bot não responde.
 
-## Passo 10 — Testar os critérios de aceite
+## Passo 10 — Manter o processo acordado (keep-alive)
+Na hospedagem Node compartilhada, o processo pode "dormir" quando ninguém acessa — e aí
+o worker de disparo e o monitor de qualidade param. Crie um monitor grátis no
+**UptimeRobot** (uptimerobot.com) do tipo HTTP(s) apontando pra
+`https://app.apishot.com.br/health`, checando a cada 5 min. Isso mantém o processo vivo
+e ainda te avisa se o site cair.
+
+## Passo 11 — Testar os critérios de aceite
 Ver seção 10 do `PROMPT_IMPLEMENTACAO.md` — são 6 testes, faz todos antes de considerar
 pronto pra produção.

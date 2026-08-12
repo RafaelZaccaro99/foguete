@@ -52,6 +52,12 @@
     </div>
     <div class="hint" style="margin-top:14px">Atalhos: <a href="/disparo.html">Disparar</a> · <a href="/numeros.html">Números</a> · <a href="/agentes.html">Agentes</a> · <a href="/conversas.html">Conversas</a></div>
   </div>
+
+  <div class="card">
+    <h2>📋 Últimos eventos</h2>
+    <div class="hint">Erros, disparos, reatribuições e opt-outs recentes (o log é limpo automaticamente por retenção).</div>
+    <div class="out" id="eventos" style="margin-top:10px">Carregando…</div>
+  </div>
 </main>
 <script>
 const $=id=>document.getElementById(id);
@@ -114,8 +120,21 @@ async function carregarResumo(){
   try{ const np=await api('/nao-perturbe'); $('stExcluidos').textContent=np.total; }catch(e){}
 }
 
+async function carregarEventos(){
+  try{
+    const evs=await api('/config/eventos');
+    if(!evs.length){ $('eventos').textContent='Nenhum evento ainda.'; return; }
+    $('eventos').textContent=evs.slice(0,40).map(e=>{
+      const d=new Date(e.criado_em).toLocaleString('pt-BR');
+      const det=e.detalhes?(' '+(typeof e.detalhes==='string'?e.detalhes:JSON.stringify(e.detalhes))):'';
+      return d+'  '+e.evento+det;
+    }).join('\n');
+  }catch(e){ $('eventos').textContent='Erro ao carregar eventos: '+e; }
+}
+
 carregarStatusToken();
 carregarResumo();
+carregarEventos();
 </script>
 </body>
 </html>

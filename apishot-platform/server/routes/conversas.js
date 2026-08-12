@@ -67,4 +67,23 @@ router.post('/:telefone/responder', asyncHandler(async (req, res) => {
   res.status(201).json(r);
 }));
 
+// LGPD — apagar todos os dados de um contato (mensagens, cadastro, etiquetas).
+// Opcional: adicionar à lista de não-perturbe pra não voltar a receber.
+router.delete('/:telefone/dados', asyncHandler(async (req, res) => {
+  const tel = req.params.telefone;
+  await query('DELETE FROM contato_etiquetas WHERE telefone = ?', [tel]);
+  await query('DELETE FROM mensagens WHERE contato_telefone = ?', [tel]);
+  await query('DELETE FROM contatos WHERE telefone = ?', [tel]);
+  if (req.query.bloquear === '1') {
+    await query(
+      "INSERT INTO nao_perturbe (telefone, origem) VALUES (?, 'upload_manual') ON DUPLICATE KEY UPDATE origem = origem",
+      [tel]
+    );
+  }
+  await query('INSERT INTO eventos_log (evento, detalhes) VALUES (?, ?)', [
+    'lgpd_exclusao_contato', JSON.stringify({ telefone: tel }),
+  ]);
+  res.json({ ok: true });
+}));
+
 module.exports = router;

@@ -404,6 +404,7 @@ async function criarCampanha(){
       numeros_marcados: marcados.map(n=>n.id),
       mapeamento_manual, cotas_manuais: cotas,
       media_url: ($('mediaUrl')&&$('mediaUrl').value.trim())||undefined,
+      variaveis_extras: ($('bodyExtra')&&$('bodyExtra').value.trim())||undefined,
     })});
     campanhaId=r.id; poolAtual=r.pool;
     setOut('fireOut','Campanha #'+campanhaId+' criada. Revezamento:\n'+r.pool.map(c=>'  🔫 '+c.label+(c.modo==='manual'?' (template mapeado)':'')).join('\n')+

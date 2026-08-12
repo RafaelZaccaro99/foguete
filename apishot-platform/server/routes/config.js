@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { getToken, setToken, origem } = require('../tokenStore');
 const { gapi } = require('../graphApi');
+const { query } = require('../db');
 const asyncHandler = require('../asyncHandler');
 
 // status do token — NUNCA devolve o token inteiro, só mascarado.
@@ -34,6 +35,14 @@ router.post('/testar-token', asyncHandler(async (req, res) => {
   } catch (erro) {
     res.status(400).json({ ok: false, erro: String(erro) });
   }
+}));
+
+// Observabilidade: últimos eventos do log (erros, disparos, reatribuições…).
+router.get('/eventos', asyncHandler(async (req, res) => {
+  const eventos = await query(
+    'SELECT evento, detalhes, criado_em FROM eventos_log ORDER BY id DESC LIMIT 100'
+  );
+  res.json(eventos);
 }));
 
 module.exports = router;

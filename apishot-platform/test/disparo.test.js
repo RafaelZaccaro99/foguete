@@ -1,6 +1,16 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { resolverCanhoes, montarPlano, sequenciaCanhoes } = require('../server/disparo');
+const { resolverCanhoes, montarPlano, sequenciaCanhoes, classificarErro } = require('../server/disparo');
+
+test('classificarErro: HTTP 5xx e rate limit são transitórios; resto é permanente', () => {
+  assert.equal(classificarErro('Error: HTTP 500'), 'transitorio');
+  assert.equal(classificarErro('Error: HTTP 503'), 'transitorio');
+  assert.equal(classificarErro('(#130429) Rate limit hit'), 'transitorio');
+  assert.equal(classificarErro('please try again later'), 'transitorio');
+  assert.equal(classificarErro('Error: HTTP 400 invalid number'), 'permanente');
+  assert.equal(classificarErro('(#131026) Message undeliverable'), 'permanente');
+  assert.equal(classificarErro(''), 'permanente');
+});
 
 test('montarPlano divide igual quando não há cota fixa', () => {
   const pool = [{ numeroId: 1 }, { numeroId: 2 }, { numeroId: 3 }];

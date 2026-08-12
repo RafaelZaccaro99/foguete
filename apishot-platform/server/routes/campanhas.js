@@ -11,7 +11,7 @@ const asyncHandler = require('../asyncHandler');
 // Cria a campanha e resolve o pool de canhões (revezamento) pro template escolhido —
 // equivalente ao "resolverCanhoes" do Foguete antigo, gravado em campanha_numeros.
 router.post('/', asyncHandler(async (req, res) => {
-  const { nome, template_nome, template_idioma, numeros_marcados, mapeamento_manual = {}, cotas_manuais = {}, media_url = null } = req.body;
+  const { nome, template_nome, template_idioma, numeros_marcados, mapeamento_manual = {}, cotas_manuais = {}, media_url = null, variaveis_extras = null } = req.body;
   if (!nome || !template_nome || !template_idioma || !Array.isArray(numeros_marcados) || !numeros_marcados.length) {
     return res.status(400).json({ erro: 'informe nome, template_nome, template_idioma e numeros_marcados' });
   }
@@ -43,8 +43,8 @@ router.post('/', asyncHandler(async (req, res) => {
 
   const corpo = (grupo.variantes[0].components || []).find(c => c.type === 'BODY')?.text || '';
   const r = await query(
-    'INSERT INTO campanhas (nome, template_nome, template_idioma, categoria, mensagem_corpo, media_url, status) VALUES (?, ?, ?, ?, ?, ?, "rascunho")',
-    [nome, grupo.nome, grupo.idioma, grupo.categoria, corpo, media_url || null]
+    'INSERT INTO campanhas (nome, template_nome, template_idioma, categoria, mensagem_corpo, media_url, variaveis_extras, status) VALUES (?, ?, ?, ?, ?, ?, ?, "rascunho")',
+    [nome, grupo.nome, grupo.idioma, grupo.categoria, corpo, media_url || null, variaveis_extras || null]
   );
   const campanhaId = r.insertId;
 

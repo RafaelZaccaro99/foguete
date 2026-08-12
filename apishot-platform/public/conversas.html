@@ -71,6 +71,10 @@
         <button id="btnResponder" onclick="responder()" disabled>Enviar</button>
       </div>
       <div class="hint">Tela de consulta, não é inbox completo. Responder manual só habilita quando o contato pediu atendente.</div>
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
+        <button class="stop" id="btnExcluir" onclick="excluirDados()" disabled style="font-size:12px;padding:8px 12px">🗑 Excluir dados deste contato (LGPD)</button>
+        <div class="hint">Apaga mensagens, cadastro e etiquetas deste contato. Ação irreversível.</div>
+      </div>
     </div>
   </div>
 </div>
@@ -127,6 +131,21 @@ async function abrirConversa(telefone){
   $('respostaTexto').disabled=!habilitar;
   $('btnResponder').disabled=!habilitar;
   $('respostaTexto').placeholder=habilitar?'Responder manualmente…':'Só habilita quando o contato pediu atendente';
+  $('btnExcluir').disabled=false;
+}
+
+async function excluirDados(){
+  if(!contatoAtual)return;
+  if(!confirm('Apagar TODOS os dados de '+contatoAtual+'? (mensagens, cadastro, etiquetas) Isso é irreversível.'))return;
+  const bloquear=confirm('Quer também adicionar este número à lista de não-perturbe (pra não receber mais)?');
+  try{
+    await api('/conversas/'+encodeURIComponent(contatoAtual)+'/dados'+(bloquear?'?bloquear=1':''),{method:'DELETE'});
+    contatoAtual=null;
+    $('threadHeader').innerHTML='<span class="hint">Contato excluído.</span>';
+    $('threadBody').innerHTML=''; $('threadEtiquetas').innerHTML='';
+    $('btnExcluir').disabled=true;
+    carregarContatos();
+  }catch(e){ alert('Erro ao excluir: '+e); }
 }
 
 async function responder(){

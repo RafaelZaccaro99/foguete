@@ -88,6 +88,7 @@ CREATE TABLE IF NOT EXISTS campanhas (
   categoria VARCHAR(20),
   mensagem_corpo TEXT,                 -- snapshot do corpo do template no momento da criação (auditoria)
   media_url VARCHAR(500) DEFAULT NULL, -- link https direto do arquivo (alternativa a subir o arquivo por canhão)
+  variaveis_extras VARCHAR(500) DEFAULT NULL, -- valores de {{2}},{{3}}... separados por ';' (o {{1}} é sempre o nome)
   status ENUM('rascunho','em_andamento','pausada','concluida') NOT NULL DEFAULT 'rascunho',
   criado_em DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -119,6 +120,7 @@ CREATE TABLE IF NOT EXISTS fila_disparo (
   motivo VARCHAR(60) DEFAULT NULL,
   numero_id INT DEFAULT NULL,
   wamid VARCHAR(120) DEFAULT NULL,
+  tentativas INT NOT NULL DEFAULT 0,   -- quantas vezes já tentou (retry em erro transitório)
   criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
   atualizado_em DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (campanha_id) REFERENCES campanhas(id),
@@ -158,5 +160,7 @@ INSERT INTO config (chave, valor) VALUES
   ('timezone', 'America/Sao_Paulo'),
   ('aquecimento_curva_pct', '20,40,70,100'),
   ('disparo_concorrencia', '8'),
-  ('disparo_intervalo_segundos', '30')
+  ('disparo_intervalo_segundos', '30'),
+  ('disparo_max_tentativas', '3'),
+  ('log_retencao_dias', '90')
 ON DUPLICATE KEY UPDATE valor = VALUES(valor);
