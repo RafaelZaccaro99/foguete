@@ -5,16 +5,25 @@ const { enviarTexto } = require('../graphApi');
 const asyncHandler = require('../asyncHandler');
 
 // Tela de conversas — consulta/auditoria, não é inbox de atendimento completo.
+// ?numero_id=X filtra pra ver só as conversas que passaram por aquele número.
+// numero_id devolvido = o número da mensagem mais recente do contato (o front resolve o label).
 router.get('/', asyncHandler(async (req, res) => {
+  const numeroId = req.query.numero_id ? parseInt(req.query.numero_id) : null;
+  const where = numeroId ? 'WHERE m.numero_id = ?' : '';
+  const params = numeroId ? [numeroId] : [];
   const contatos = await query(`
-    SELECT contato_telefone,
-           MAX(criado_em) AS ultima_mensagem,
-           COUNT(*) AS total_mensagens
-    FROM mensagens
-    GROUP BY contato_telefone
+    SELECT m.contato_telefone,
+           MAX(m.criado_em) AS ultima_mensagem,
+           COUNT(*) AS total_mensagens,
+           CAST(SUBSTRING_INDEX(GROUP_CONCAT(COALESCE(m.numero_id, 0) ORDER BY m.criado_em DESC), ',', 1) AS UNSIGNED) AS numero_id,
+           COALESCE(MAX(c.qualificacao), 'novo') AS qualificacao
+    FROM mensagens m
+    LEFT JOIN contatos c ON c.telefone = m.contato_telefone
+    ${where}
+    GROUP BY m.contato_telefone
     ORDER BY ultima_mensagem DESC
     LIMIT 200
-  `);
+  `, params);
   res.json(contatos);
 }));
 
@@ -23,7 +32,12 @@ router.get('/:telefone', asyncHandler(async (req, res) => {
     'SELECT * FROM mensagens WHERE contato_telefone = ? ORDER BY criado_em ASC',
     [req.params.telefone]
   );
-  res.json(mensagens);
+  const etiquetas = await query(
+    `SELECT e.id, e.nome, e.cor FROM contato_etiquetas ce
+     JOIN etiquetas e ON e.id = ce.etiqueta_id WHERE ce.telefone = ?`,
+    [req.params.telefone]
+  ).catch(() => []);
+  res.json({ mensagens, etiquetas });
 }));
 
 // resposta manual — só usada quando a automação "atendente_humano" foi acionada.

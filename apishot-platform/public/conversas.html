@@ -12,33 +12,40 @@
   *{box-sizing:border-box;margin:0;padding:0}
   body{font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif;color:var(--tx);
     background:linear-gradient(180deg,var(--bg0),var(--bg1));background-attachment:fixed;min-height:100vh;padding:28px 18px 60px}
-  .wrap{max-width:980px;margin:0 auto}
+  .wrap{max-width:1000px;margin:0 auto}
   .hero{display:flex;flex-direction:column;align-items:center;gap:7px;margin:8px 0 22px;text-align:center}
   .brand{font-weight:900;font-size:clamp(26px,6vw,38px);letter-spacing:1px;color:#4ef08a;text-shadow:0 0 24px rgba(37,211,102,.4)}
-  .nav{display:flex;gap:10px;justify-content:center;margin-top:10px}
+  .nav{display:flex;gap:8px;justify-content:center;margin-top:10px;flex-wrap:wrap}
   .nav a{color:var(--mut);text-decoration:none;font-size:13px;padding:6px 12px;border-radius:999px;border:1px solid var(--line)}
   .nav a.on{color:var(--go);border-color:rgba(37,211,102,.35)}
+  .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+  .toolbar label{font-size:12.5px;color:var(--mut)}
   .layout{display:flex;gap:16px;align-items:flex-start}
   .card{background:var(--glass);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:18px;padding:18px}
-  .lista{flex:1;min-width:260px;max-height:70vh;overflow-y:auto}
+  .lista{flex:1;min-width:280px;max-height:70vh;overflow-y:auto}
   .thread{flex:2;min-width:300px}
   .contato{padding:10px 12px;border-radius:10px;cursor:pointer;margin-bottom:6px;border:1px solid transparent}
   .contato:hover{background:rgba(255,255,255,.04)}
   .contato.on{border-color:rgba(37,211,102,.4);background:rgba(37,211,102,.08)}
   .contato b{display:block;font-size:13.5px}
-  .contato span{font-size:11.5px;color:var(--mut)}
+  .contato .meta{font-size:11.5px;color:var(--mut);margin-top:2px}
   .msg{padding:8px 12px;border-radius:10px;margin-bottom:8px;max-width:80%;font-size:13.5px}
   .msg.entrada{background:#202c33;align-self:flex-start}
   .msg.saida{background:linear-gradient(135deg,#16c95f,#0a8f43);margin-left:auto}
   .msg small{display:block;color:rgba(255,255,255,.6);font-size:10.5px;margin-top:4px}
-  .thread-body{display:flex;flex-direction:column;max-height:55vh;overflow-y:auto;margin-bottom:12px}
-  input,button{font-family:inherit;font-size:13.5px}
-  input{flex:1;background:rgba(6,7,12,.75);border:1px solid var(--line);border-radius:11px;color:var(--tx);padding:10px 13px}
+  .thread-body{display:flex;flex-direction:column;max-height:52vh;overflow-y:auto;margin-bottom:12px}
+  input,select,button{font-family:inherit;font-size:13.5px}
+  input,select{background:rgba(6,7,12,.75);border:1px solid var(--line);border-radius:11px;color:var(--tx);padding:9px 12px}
+  .respostaRow input{flex:1}
   button{border:none;color:#fff;font-weight:700;padding:10px 16px;border-radius:11px;cursor:pointer;background:linear-gradient(135deg,#16c95f,#0a8f43);margin-left:8px}
   button:disabled{opacity:.35;cursor:not-allowed}
-  .row{display:flex}
+  .respostaRow{display:flex}
   .hint{font-size:12px;color:var(--mut);margin-top:10px}
-  .pill{display:inline-block;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:999px;padding:2px 10px;font-size:11px;color:var(--mut)}
+  .pill{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:2px 9px;font-size:11px;color:var(--mut);margin:2px 4px 2px 0}
+  .pill.q-quente{color:#ff9f45;border-color:rgba(255,159,69,.4)}
+  .pill.q-novo{color:var(--mut)}
+  .pill.q-qualificado,.pill.q-morno{color:var(--go);border-color:rgba(37,211,102,.35)}
+  .etq{display:inline-block;border-radius:999px;padding:2px 9px;font-size:11px;margin:2px 4px 2px 0;color:#0b0713;font-weight:700}
 </style>
 </head>
 <body>
@@ -49,25 +56,34 @@
       <a href="/disparo.html">Disparo</a>
       <a href="/conversas.html" class="on">Conversas</a>
       <a href="/numeros.html">Números</a>
+      <a href="/templates.html">Templates</a>
+      <a href="/agentes.html">Agentes</a>
     </div>
   </div>
+
+  <div class="toolbar">
+    <label>Ver conversas de:</label>
+    <select id="filtroNumero" onchange="carregarContatos()"><option value="">Todos os números</option></select>
+  </div>
+
   <div class="layout">
     <div class="card lista" id="listaContatos">Carregando…</div>
     <div class="card thread">
       <div id="threadHeader" class="hint">Selecione um contato pra ver a conversa.</div>
+      <div id="threadEtiquetas" style="margin:6px 0"></div>
       <div class="thread-body" id="threadBody"></div>
-      <div class="row">
+      <div class="respostaRow">
         <input type="text" id="respostaTexto" placeholder="Responder manualmente…" disabled>
         <button id="btnResponder" onclick="responder()" disabled>Enviar</button>
       </div>
-      <div class="hint">Tela de consulta, não é inbox de atendimento completo. O botão de responder é pra quando o contato pediu atendente.</div>
+      <div class="hint">Tela de consulta, não é inbox completo. Responder manual só habilita quando o contato pediu atendente.</div>
     </div>
   </div>
 </div>
 <script>
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
-let contatoAtual=null;
+let contatoAtual=null, numerosMap={};
 
 async function api(path,opts){
   const r=await fetch(path,opts);
@@ -76,13 +92,23 @@ async function api(path,opts){
   return data;
 }
 
+async function carregarNumeros(){
+  const numeros=await api('/numeros');
+  numeros.forEach(n=>numerosMap[n.id]=n.label);
+  const sel=$('filtroNumero');
+  numeros.forEach(n=>{const o=document.createElement('option');o.value=n.id;o.textContent=n.label;sel.appendChild(o);});
+}
+
 async function carregarContatos(){
-  const contatos=await api('/conversas');
+  const nid=$('filtroNumero').value;
+  const contatos=await api('/conversas'+(nid?'?numero_id='+nid:''));
   const box=$('listaContatos');
-  if(!contatos.length){ box.innerHTML='<div class="hint">Nenhuma conversa ainda.</div>'; return; }
+  if(!contatos.length){ box.innerHTML='<div class="hint">Nenhuma conversa'+(nid?' neste número':'')+'.</div>'; return; }
   box.innerHTML=contatos.map(c=>
     '<div class="contato" data-tel="'+esc(c.contato_telefone)+'"><b>'+esc(c.contato_telefone)+'</b>'+
-    '<span>'+c.total_mensagens+' mensagem(ns) · '+new Date(c.ultima_mensagem).toLocaleString('pt-BR')+'</span></div>'
+    '<div class="meta">'+c.total_mensagens+' msg · '+new Date(c.ultima_mensagem).toLocaleString('pt-BR')+
+    ' · <span class="pill q-'+esc(c.qualificacao||'novo')+'">'+esc(c.qualificacao||'novo')+'</span>'+
+    (numerosMap[c.numero_id]?' · '+esc(numerosMap[c.numero_id]):'')+'</div></div>'
   ).join('');
   box.querySelectorAll('.contato').forEach(el=>el.onclick=()=>abrirConversa(el.dataset.tel));
 }
@@ -90,17 +116,20 @@ async function carregarContatos(){
 async function abrirConversa(telefone){
   contatoAtual=telefone;
   document.querySelectorAll('.contato').forEach(el=>el.classList.toggle('on',el.dataset.tel===telefone));
-  const mensagens=await api('/conversas/'+encodeURIComponent(telefone));
+  const data=await api('/conversas/'+encodeURIComponent(telefone));
+  const mensagens=data.mensagens||[];
+  const etiquetas=data.etiquetas||[];
   $('threadHeader').innerHTML='<span class="pill">'+esc(telefone)+'</span>';
+  $('threadEtiquetas').innerHTML=etiquetas.map(e=>'<span class="etq" style="background:'+esc(e.cor||'#16c95f')+'">'+esc(e.nome)+'</span>').join('');
   $('threadBody').innerHTML=mensagens.map(m=>
     '<div class="msg '+m.direcao+'">'+esc(m.texto||'')+
-    (m.automacao_id?'<small>automação: '+esc(m.automacao_id)+'</small>':'')+
+    (m.automacao_id?'<small>agente: '+esc(m.automacao_id)+'</small>':'')+
     '<small>'+new Date(m.criado_em).toLocaleString('pt-BR')+'</small></div>'
   ).join('');
   $('threadBody').scrollTop=$('threadBody').scrollHeight;
 
-  const ultimaAutomacaoAtendente=[...mensagens].reverse().find(m=>m.automacao_id==='atendente_humano');
-  const habilitar=!!ultimaAutomacaoAtendente;
+  const pediuAtendente=[...mensagens].reverse().find(m=>m.automacao_id==='atendente_humano');
+  const habilitar=!!pediuAtendente;
   $('respostaTexto').disabled=!habilitar;
   $('btnResponder').disabled=!habilitar;
   $('respostaTexto').placeholder=habilitar?'Responder manualmente…':'Só habilita quando o contato pediu atendente';
@@ -116,8 +145,11 @@ async function responder(){
   }catch(e){ alert('Erro ao responder: '+e); }
 }
 
-carregarContatos();
-setInterval(carregarContatos,15000);
+(async function init(){
+  await carregarNumeros();
+  await carregarContatos();
+  setInterval(carregarContatos,15000);
+})();
 </script>
 </body>
 </html>

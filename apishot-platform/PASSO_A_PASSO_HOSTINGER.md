@@ -47,16 +47,19 @@ Pelo Gerenciador de Arquivos ou FTP, sobe TODA a pasta `apishot-platform` (menos
 No painel do Node.js App → Variáveis de ambiente, adiciona TODAS as do `.env.example`:
 `VERIFY_TOKEN`, `WHATSAPP_TOKEN`, `DB_HOST`, `DB_USER`, `DB_PASS`, `DB_NAME`, `PORT`.
 
-## Passo 6 — Instalar dependências e rodar os testes
+## Passo 6 — Instalar dependências, testar e carregar os agentes
 Botão "Executar NPM Install" no painel do Node.js App (ou terminal SSH → `npm install`
-dentro da pasta). Antes de reiniciar em produção, rode `npm test` (via SSH) — cobre o
-revezamento de canhões, as 17 automações e a curva de aquecimento sem precisar de banco
-nem de token real. Se algum teste falhar, não segue pro próximo passo.
+dentro da pasta). Depois, via SSH:
+- `npm test` — cobre revezamento, automações, curva de aquecimento e scrub, sem precisar
+  de banco nem token real. Se algum teste falhar, não segue.
+- `node server/seedAgentes.js` — carrega as 17 automações-padrão como agentes editáveis
+  (roda uma vez só; é idempotente). Sem isso o bot não responde nada.
 
 ## Passo 7 — Reiniciar e testar
 Reinicia a aplicação. Abre `https://app.apishot.com.br/` — deve responder
-"Apishot Platform no ar. Rotas: /webhook · /numeros · /conversas · /templates · /campanhas".
-O painel fica em `/disparo.html`, `/conversas.html` e `/numeros.html`.
+"Apishot Platform no ar. Rotas: /webhook · /numeros · /conversas · /templates · /campanhas · /agentes · /nao-perturbe".
+O painel tem 5 abas: `/disparo.html`, `/conversas.html`, `/numeros.html`,
+`/templates.html`, `/agentes.html`.
 
 ## Passo 8 — Sincronizar os números
 Abre `https://app.apishot.com.br/numeros.html` e clica em "🔭 Buscar de novo" — isso varre

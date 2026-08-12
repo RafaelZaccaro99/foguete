@@ -72,4 +72,11 @@ function sequenciaCanhoes(counts) {
   return seq;
 }
 
-module.exports = { resolverCanhoes, montarPlano, sequenciaCanhoes };
+// Remove de `contatos` (lista de {telefone,...}) quem estiver em `setBloqueados` (Set de
+// telefones). Puro — usado no enfileiramento pra tirar já-enviados e a lista de não-perturbe.
+function scrubTelefones(contatos, setBloqueados) {
+  const filtrados = contatos.filter(c => !setBloqueados.has(c.telefone));
+  return { filtrados, removidos: contatos.length - filtrados.length };
+}
+
+module.exports = { resolverCanhoes, montarPlano, sequenciaCanhoes, scrubTelefones };

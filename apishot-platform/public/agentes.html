@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apishot — Agentes</title>
+<style>
+  :root{
+    --bg0:#0a0b12;--bg1:#12131d;--glass:rgba(28,30,44,.72);--line:rgba(255,255,255,.08);
+    --tx:#eef1f8;--mut:#98a1b8;--go:#25d366;--warn:#f6b73c;--bad:#ff5c6c;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif;color:var(--tx);
+    background:linear-gradient(180deg,var(--bg0),var(--bg1));background-attachment:fixed;min-height:100vh;padding:28px 18px 60px}
+  .wrap{max-width:1000px;margin:0 auto}
+  .hero{display:flex;flex-direction:column;align-items:center;gap:7px;margin:8px 0 22px;text-align:center}
+  .brand{font-weight:900;font-size:clamp(26px,6vw,38px);letter-spacing:1px;color:#4ef08a;text-shadow:0 0 24px rgba(37,211,102,.4)}
+  .nav{display:flex;gap:8px;justify-content:center;margin-top:10px;flex-wrap:wrap}
+  .nav a{color:var(--mut);text-decoration:none;font-size:13px;padding:6px 12px;border-radius:999px;border:1px solid var(--line)}
+  .nav a.on{color:var(--go);border-color:rgba(37,211,102,.35)}
+  .card{background:var(--glass);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:18px;padding:22px;margin-bottom:16px}
+  .card h2{font-size:15.5px;margin-bottom:14px}
+  .pill{display:inline-block;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:999px;padding:2px 10px;font-size:11px;color:var(--mut);margin:2px 4px 2px 0}
+  .pill.g{color:var(--go);border-color:rgba(37,211,102,.3)}.pill.b{color:var(--bad);border-color:rgba(255,92,108,.3)}
+  button{border:none;color:#fff;font-weight:700;font-size:12.5px;padding:8px 14px;border-radius:9px;cursor:pointer;margin:2px;background:linear-gradient(135deg,#16c95f,#0a8f43)}
+  button.ghost{background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--tx)}
+  button.stop{background:linear-gradient(135deg,#ff5c6c,#d63447)}
+  button.sm{padding:6px 10px;font-size:11.5px}
+  input,select,textarea{width:100%;background:rgba(6,7,12,.75);border:1px solid var(--line);border-radius:11px;color:var(--tx);padding:10px 12px;font-size:13.5px;font-family:inherit;margin-top:6px}
+  label{display:block;font-size:12.5px;color:var(--mut);margin-top:12px;font-weight:600}
+  .row{display:flex;gap:12px;flex-wrap:wrap}.row>div{flex:1;min-width:160px}
+  .hint{font-size:12px;color:var(--mut);margin-top:8px}
+  .agente{border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:10px}
+  .agente.off{opacity:.5}
+  .agente h3{font-size:14px;margin-bottom:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line)}
+  th{color:var(--mut);font-size:11.5px;text-transform:uppercase}
+  .etq{display:inline-block;border-radius:999px;padding:2px 9px;font-size:11px;margin:2px 4px 2px 0;color:#0b0713;font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <div class="brand">🚀 APISHOT</div>
+    <div class="nav">
+      <a href="/disparo.html">Disparo</a>
+      <a href="/conversas.html">Conversas</a>
+      <a href="/numeros.html">Números</a>
+      <a href="/templates.html">Templates</a>
+      <a href="/agentes.html" class="on">Agentes</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>➕ Novo agente</h2>
+    <div class="hint">O agente reconhece a intenção por palavras-chave e responde com o texto que você cadastrar (nunca inventa). Pode também etiquetar e qualificar o lead.</div>
+    <label>Nome do agente</label>
+    <input type="text" id="aNome" placeholder="Ex: Interessado em fechar">
+    <label>Gatilhos (palavras/frases que ativam — uma por linha)</label>
+    <textarea id="aGatilhos" style="min-height:70px" placeholder="quero fechar&#10;tenho interesse&#10;como faço pra assinar"></textarea>
+    <label>Resposta (texto cadastrado enviado ao lead)</label>
+    <textarea id="aResposta" style="min-height:70px" placeholder="Que ótimo! Já te passo o link pra garantir..."></textarea>
+    <div class="row">
+      <div><label>Etiqueta ao casar (opcional)</label><select id="aEtiqueta"><option value="">— nenhuma —</option></select></div>
+      <div><label>Qualificação ao casar (opcional)</label>
+        <select id="aQualificacao"><option value="">— não mexer —</option><option>novo</option><option>quente</option><option>morno</option><option>frio</option><option>qualificado</option><option>descartado</option></select>
+      </div>
+      <div><label>Prioridade (menor = antes)</label><input type="number" id="aPrioridade" value="100"></div>
+    </div>
+    <button onclick="criarAgente()" style="margin-top:12px">Salvar agente</button>
+    <div class="hint" id="aOut"></div>
+  </div>
+
+  <div class="card">
+    <h2>🏷️ Etiquetas</h2>
+    <div class="row">
+      <div style="flex:2"><input type="text" id="etqNome" placeholder="nome da etiqueta (ex: quente)"></div>
+      <div><input type="color" id="etqCor" value="#16c95f" style="height:42px;padding:4px"></div>
+      <div><button onclick="criarEtiqueta()" style="width:100%;margin-top:6px">Adicionar</button></div>
+    </div>
+    <div id="listaEtiquetas" style="margin-top:12px"></div>
+  </div>
+
+  <div class="card">
+    <h2>🤖 Agentes ativos</h2>
+    <div id="listaAgentes">Carregando…</div>
+  </div>
+
+  <div class="card">
+    <h2>🎯 Leads qualificados</h2>
+    <table>
+      <thead><tr><th>Telefone</th><th>Qualificação</th><th>Etiquetas</th><th>Atualizado</th></tr></thead>
+      <tbody id="tbodyLeads"><tr><td colspan="4" class="hint">Carregando…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+async function api(path,opts){
+  const r=await fetch(path,opts);
+  const data=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(data.erro||('HTTP '+r.status));
+  return data;
+}
+let etiquetas=[];
+
+async function carregarEtiquetas(){
+  etiquetas=await api('/agentes/etiquetas');
+  const sel=$('aEtiqueta'); sel.innerHTML='<option value="">— nenhuma —</option>';
+  etiquetas.forEach(e=>{const o=document.createElement('option');o.value=e.id;o.textContent=e.nome;sel.appendChild(o);});
+  $('listaEtiquetas').innerHTML=etiquetas.length?etiquetas.map(e=>
+    '<span class="etq" style="background:'+esc(e.cor)+'">'+esc(e.nome)+' <a href="#" onclick="excluirEtiqueta('+e.id+');return false" style="color:#0b0713">✕</a></span>'
+  ).join(''):'<div class="hint">Nenhuma etiqueta ainda.</div>';
+}
+async function criarEtiqueta(){
+  const nome=$('etqNome').value.trim(); if(!nome){alert('Dê um nome.');return;}
+  await api('/agentes/etiquetas',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nome,cor:$('etqCor').value})});
+  $('etqNome').value=''; carregarEtiquetas();
+}
+async function excluirEtiqueta(id){
+  if(!confirm('Excluir etiqueta?'))return;
+  await api('/agentes/etiquetas/'+id,{method:'DELETE'}); carregarEtiquetas();
+}
+
+async function carregarAgentes(){
+  const agentes=await api('/agentes');
+  $('listaAgentes').innerHTML=agentes.map(a=>{
+    const etq=etiquetas.find(e=>e.id===a.etiqueta_id);
+    return '<div class="agente'+(a.ativo?'':' off')+'"><h3>'+esc(a.nome)+
+      (a.prioridade_maxima?' <span class="pill b">prioridade máxima</span>':'')+
+      (a.ativo?'<span class="pill g">ativo</span>':'<span class="pill">desativado</span>')+
+      (etq?'<span class="etq" style="background:'+esc(etq.cor)+'">'+esc(etq.nome)+'</span>':'')+
+      (a.qualificacao?'<span class="pill">→ '+esc(a.qualificacao)+'</span>':'')+'</h3>'+
+      '<div class="hint">Gatilhos: '+esc((a.gatilhos||[]).join(' · ')||'—')+'</div>'+
+      '<div class="hint">Resposta: '+esc(a.resposta||'(sem resposta)')+'</div>'+
+      '<div style="margin-top:8px"><button class="ghost sm" onclick="toggleAgente('+a.id+')">'+(a.ativo?'Desativar':'Ativar')+'</button>'+
+      '<button class="stop sm" onclick="excluirAgente('+a.id+')">Excluir</button></div></div>';
+  }).join('')||'<div class="hint">Nenhum agente.</div>';
+}
+async function criarAgente(){
+  const nome=$('aNome').value.trim(); if(!nome){$('aOut').textContent='Dê um nome ao agente.';return;}
+  const gatilhos=$('aGatilhos').value.split(/\n+/).map(s=>s.trim()).filter(Boolean);
+  if(!gatilhos.length){$('aOut').textContent='Adicione pelo menos 1 gatilho.';return;}
+  try{
+    await api('/agentes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      nome, gatilhos, resposta:$('aResposta').value.trim(),
+      etiqueta_id:$('aEtiqueta').value||null, qualificacao:$('aQualificacao').value||null,
+      prioridade:parseInt($('aPrioridade').value)||100,
+    })});
+    $('aNome').value='';$('aGatilhos').value='';$('aResposta').value='';$('aQualificacao').value='';$('aEtiqueta').value='';
+    $('aOut').textContent='Agente criado ✅';
+    carregarAgentes();
+  }catch(e){ $('aOut').textContent='Erro: '+e; }
+}
+async function toggleAgente(id){ await api('/agentes/'+id+'/toggle',{method:'POST'}); carregarAgentes(); }
+async function excluirAgente(id){ if(confirm('Excluir agente?')){ await api('/agentes/'+id,{method:'DELETE'}); carregarAgentes(); } }
+
+async function carregarLeads(){
+  const leads=await api('/agentes/leads');
+  $('tbodyLeads').innerHTML=leads.length?leads.map(l=>
+    '<tr><td><b>'+esc(l.telefone)+'</b></td><td><span class="pill">'+esc(l.qualificacao)+'</span></td>'+
+    '<td>'+(l.etiquetas.map(e=>'<span class="pill">'+esc(e)+'</span>').join('')||'—')+'</td>'+
+    '<td class="hint">'+(l.atualizado_em?new Date(l.atualizado_em).toLocaleString('pt-BR'):'—')+'</td></tr>'
+  ).join(''):'<tr><td colspan="4" class="hint">Nenhum lead ainda.</td></tr>';
+}
+
+(async function init(){
+  await carregarEtiquetas();
+  await carregarAgentes();
+  await carregarLeads();
+})();
+</script>
+</body>
+</html>

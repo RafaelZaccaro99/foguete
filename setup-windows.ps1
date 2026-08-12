@@ -180,6 +180,11 @@ Etapa 'Rodando os testes (npm test)'
 npm test
 if ($LASTEXITCODE -ne 0) { Pop-Location; Falha 'Algum teste falhou — me mande a saída acima.' }
 Ok 'todos os testes passaram'
+
+Etapa 'Carregando os agentes-padrão (as 17 automações)'
+node server/seedAgentes.js
+if ($LASTEXITCODE -ne 0) { Pop-Location; Falha 'Falhou ao carregar os agentes-padrão.' }
+Ok 'agentes-padrão prontos'
 Pop-Location
 
 # --- 8. Subir o servidor e abrir o navegador ----------------------------------

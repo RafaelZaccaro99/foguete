@@ -9,17 +9,21 @@ Hostinger em [`PASSO_A_PASSO_HOSTINGER.md`](./PASSO_A_PASSO_HOSTINGER.md).
 
 ```bash
 npm install
-cp .env.example .env   # preenche VERIFY_TOKEN, WHATSAPP_TOKEN, DB_*
+cp .env.example .env       # preenche VERIFY_TOKEN, WHATSAPP_TOKEN, DB_*
 # cria o banco e roda schema.sql nele (MySQL local ou remoto)
-npm test                # revezamento de canhões, automações e curva de aquecimento
-npm start                # sobe em http://localhost:3000
+node server/seedAgentes.js # carrega as 17 automações-padrão como agentes (roda 1x)
+npm test                   # revezamento, automações, curva de aquecimento, scrub
+npm start                  # sobe em http://localhost:3000
 ```
 
-O painel fica em `/disparo.html`, `/conversas.html` e `/numeros.html`.
+O painel tem 5 abas: `/disparo.html`, `/conversas.html`, `/numeros.html`,
+`/templates.html` e `/agentes.html`.
 
 ## Estrutura
 
-- `server/automations.js` — as 17 automações (16 dúvidas + opt-out, prioridade máxima).
+- `server/automations.js` — motor de agentes (as antigas 17 automações agora vêm do banco
+  e são editáveis na tela; `matchAgente` é puro/testável, `encontrarAutomacao` usa cache).
+- `server/seedAgentes.js` — dados-semente das 17 + carga inicial idempotente.
 - `server/compliance.js` — não-perturbe, janela de horário, limite diário + aquecimento
   de número novo, monitor de quality rating (promove/pausa números automaticamente).
 - `server/graphApi.js` — toda chamada à Graph API num lugar só (token nunca sai do
@@ -28,8 +32,8 @@ O painel fica em `/disparo.html`, `/conversas.html` e `/numeros.html`.
   montarPlano, sequenciaCanhoes), portadas do Foguete antigo (`api_shot_atual.html`).
 - `server/filaWorker.js` — worker que processa a fila de disparo respeitando compliance.
 - `server/routes/` — `webhook.js`, `numeros.js`, `conversas.js`, `templates.js`,
-  `campanhas.js`.
-- `public/` — painel (3 telas, HTML/JS puro, sem build).
+  `campanhas.js`, `agentes.js`, `naoPerturbe.js`.
+- `public/` — painel (5 telas, HTML/JS puro, sem build).
 
 ## Rotas principais
 
@@ -39,7 +43,12 @@ O painel fica em `/disparo.html`, `/conversas.html` e `/numeros.html`.
 | `GET /numeros` · `POST /numeros/sync` | Lista e sincroniza números com o Business Manager |
 | `POST /numeros/:id/pausar` · `/ativar` | Pausa/ativa um número manualmente |
 | `GET /numeros/templates` | Templates aprovados, agrupados por nome+idioma |
+| `GET /templates` | Biblioteca: todos os templates (todos os status) |
 | `POST /templates` · `POST /templates/clonar` | Cria/clona template numa WABA |
+| `GET/POST /agentes` · `PUT/DELETE /agentes/:id` | CRUD dos agentes configuráveis |
+| `GET/POST/DELETE /agentes/etiquetas` | Etiquetas dos leads |
+| `GET /agentes/leads` | Leads com etiquetas + qualificação |
+| `GET/POST /nao-perturbe` · `/checar` · `/importar` | Lista de exclusão e scrub |
 | `POST /campanhas` | Cria campanha e resolve o pool de canhões |
 | `POST /campanhas/:id/contatos` | Enfileira a lista (já normalizada no navegador) |
 | `POST /campanhas/:id/media` | Sobe mídia do header do template pros canhões |

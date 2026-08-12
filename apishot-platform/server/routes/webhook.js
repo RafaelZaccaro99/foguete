@@ -12,6 +12,28 @@ async function resolverNumeroId(phoneNumberId) {
   return rows[0]?.id || null;
 }
 
+// registra/atualiza o contato no inbound (a tabela contatos antes ficava vazia).
+async function upsertContato(telefone, numeroId) {
+  await query(
+    `INSERT INTO contatos (telefone, numero_id) VALUES (?, ?)
+     ON DUPLICATE KEY UPDATE numero_id = VALUES(numero_id)`,
+    [telefone, numeroId]
+  );
+}
+
+// aplica os efeitos de um agente que casou: etiqueta e/ou qualificação do lead.
+async function aplicarEfeitosAgente(telefone, agente) {
+  if (agente.etiqueta_id) {
+    await query(
+      'INSERT IGNORE INTO contato_etiquetas (telefone, etiqueta_id) VALUES (?, ?)',
+      [telefone, agente.etiqueta_id]
+    );
+  }
+  if (agente.qualificacao) {
+    await query('UPDATE contatos SET qualificacao = ? WHERE telefone = ?', [agente.qualificacao, telefone]);
+  }
+}
+
 // controle de repetição em memória (6h) — pode virar tabela própria depois se quiser persistir entre restarts
 const JANELA_REPETICAO_MS = 6 * 60 * 60 * 1000;
 const ultimaExecucao = new Map();
@@ -43,6 +65,7 @@ router.post('/', async (req, res) => {
         const de = m.from;
         const texto = m.text?.body || '';
 
+        await upsertContato(de, numeroId);
         await query(
           'INSERT INTO mensagens (numero_id, contato_telefone, direcao, texto, criado_em) VALUES (?, ?, "entrada", ?, NOW())',
           [numeroId, de, texto]
@@ -53,41 +76,44 @@ router.post('/', async (req, res) => {
 
         if (m.type !== 'text') continue;
 
-        const automacao = encontrarAutomacao(texto);
-        if (!automacao) {
+        const agente = await encontrarAutomacao(texto);
+        if (!agente) {
           await query('INSERT INTO eventos_log (evento, detalhes) VALUES (?, ?)', [
             'automacao_nao_encontrada', JSON.stringify({ de, texto }),
           ]);
           continue;
         }
+        const agenteRef = agente.chave || String(agente.id); // id estável pra log/mensagens
 
-        const chave = `${de}:${automacao.id}`;
-        const ultima = ultimaExecucao.get(chave);
-        if (!automacao.prioridade_maxima && ultima && Date.now() - ultima < JANELA_REPETICAO_MS) {
+        const chaveRep = `${de}:${agente.id}`;
+        const ultima = ultimaExecucao.get(chaveRep);
+        if (!agente.prioridade_maxima && ultima && Date.now() - ultima < JANELA_REPETICAO_MS) {
           continue; // bloqueado por repetição — exceto opt-out, que sempre processa
         }
 
         // registra a ação de compliance ANTES de tentar responder — se o envio da
         // confirmação falhar (Meta fora do ar, rate limit etc.), o contato tem que
         // entrar na lista de não-perturbe do mesmo jeito. É a prioridade 1 do bot.
-        if (automacao.acao_extra === 'adicionar_nao_perturbe') {
+        if (agente.acao_extra === 'adicionar_nao_perturbe') {
           await adicionarNaoPerturbe(de, 'opt_out_automatico');
         }
+        // etiqueta/qualificação valem mesmo que o envio falhe (é registro do lead, não depende da Meta)
+        await aplicarEfeitosAgente(de, agente);
 
         try {
-          await enviarTexto(phoneNumberId, de, automacao.resposta);
-          ultimaExecucao.set(chave, Date.now());
+          if (agente.resposta) await enviarTexto(phoneNumberId, de, agente.resposta);
+          ultimaExecucao.set(chaveRep, Date.now());
 
           await query(
             'INSERT INTO mensagens (numero_id, contato_telefone, direcao, texto, automacao_id, criado_em) VALUES (?, ?, "saida", ?, ?, NOW())',
-            [numeroId, de, automacao.resposta, automacao.id]
+            [numeroId, de, agente.resposta || '', agenteRef]
           );
           await query('INSERT INTO eventos_log (evento, detalhes) VALUES (?, ?)', [
-            'automacao_executada', JSON.stringify({ de, automacao: automacao.id }),
+            'automacao_executada', JSON.stringify({ de, automacao: agenteRef }),
           ]);
         } catch (erro) {
           await query('INSERT INTO eventos_log (evento, detalhes) VALUES (?, ?)', [
-            'erro_envio_automacao', JSON.stringify({ de, automacao: automacao.id, erro: String(erro) }),
+            'erro_envio_automacao', JSON.stringify({ de, automacao: agenteRef, erro: String(erro) }),
           ]);
         }
       }

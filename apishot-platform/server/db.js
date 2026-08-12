@@ -11,6 +11,7 @@ const pool = mysql.createPool({
   database: process.env.DB_NAME,
   waitForConnections: true,
   connectionLimit: 10,
+  charset: 'utf8mb4', // WhatsApp traz emoji (4 bytes) — sem isso a gravação da mensagem quebra
 });
 
 async function query(sql, params) {

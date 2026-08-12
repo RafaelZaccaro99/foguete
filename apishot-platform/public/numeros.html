@@ -15,7 +15,7 @@
   .wrap{max-width:1000px;margin:0 auto}
   .hero{display:flex;flex-direction:column;align-items:center;gap:7px;margin:8px 0 22px;text-align:center}
   .brand{font-weight:900;font-size:clamp(26px,6vw,38px);letter-spacing:1px;color:#4ef08a;text-shadow:0 0 24px rgba(37,211,102,.4)}
-  .nav{display:flex;gap:10px;justify-content:center;margin-top:10px}
+  .nav{display:flex;gap:8px;justify-content:center;margin-top:10px;flex-wrap:wrap}
   .nav a{color:var(--mut);text-decoration:none;font-size:13px;padding:6px 12px;border-radius:999px;border:1px solid var(--line)}
   .nav a.on{color:var(--go);border-color:rgba(37,211,102,.35)}
   .card{background:var(--glass);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:18px;padding:22px;margin-bottom:16px}
@@ -43,6 +43,8 @@
       <a href="/disparo.html">Disparo</a>
       <a href="/conversas.html">Conversas</a>
       <a href="/numeros.html" class="on">Números</a>
+      <a href="/templates.html">Templates</a>
+      <a href="/agentes.html">Agentes</a>
     </div>
   </div>
 
@@ -53,34 +55,7 @@
       <thead><tr><th>Número</th><th>Status</th><th>Qualidade</th><th>Limite/dia</th><th>Hoje</th><th></th></tr></thead>
       <tbody id="tbody"><tr><td colspan="6">Carregando…</td></tr></tbody>
     </table>
-  </div>
-
-  <div class="card">
-    <h2>Criar template novo</h2>
-    <div class="row">
-      <div><label>Nome (minúsculas e _)</label><input type="text" id="ntName" placeholder="aceite_ifood_farma"></div>
-      <div><label>Categoria</label><select id="ntCat"><option value="MARKETING">MARKETING</option><option value="UTILITY">UTILITY</option></select></div>
-      <div><label>WABA (id da conta)</label><input type="text" id="ntWaba" placeholder="id da conta"></div>
-    </div>
-    <label>Corpo (pode usar {{1}} como variável, ex: nome)</label>
-    <textarea id="ntBody" style="min-height:90px"></textarea>
-    <label>Botões (opcional, um por linha) — LINK | Texto | https://... &nbsp;•&nbsp; RESPOSTA | Texto</label>
-    <textarea id="ntBtns" style="min-height:60px"></textarea>
-    <button onclick="criarTemplate()">⬆️ Subir template</button>
-    <div class="out" id="ntOut">Aprovação da Meta: de minutos a poucas horas.</div>
-  </div>
-
-  <div class="card">
-    <h2>Clonar template pra outras contas</h2>
-    <div class="row">
-      <div><label>WABA de origem</label><input type="text" id="clWabaOrigem"></div>
-      <div><label>Nome do template</label><input type="text" id="clNome"></div>
-      <div><label>Idioma</label><input type="text" id="clIdioma" value="pt_BR"></div>
-    </div>
-    <label>WABAs de destino (separe por vírgula)</label>
-    <input type="text" id="clDestinos" placeholder="1422556032629403, 1583...">
-    <button onclick="clonarTemplate()">📋 Clonar</button>
-    <div class="out" id="clOut">Cria o mesmo template nas contas de destino e manda pra aprovação da Meta.</div>
+    <div class="hint">Criar e clonar templates fica na aba <a href="/templates.html" style="color:var(--go)">Templates</a>.</div>
   </div>
 </div>
 <script>
@@ -116,41 +91,6 @@ async function sincronizar(){
   try{ const r=await api('/numeros/sync',{method:'POST'}); alert('Sincronizado: '+r.novos+' novo(s), '+r.atualizados+' atualizado(s).'); }
   catch(e){ alert('Erro: '+e); }
   carregar();
-}
-
-async function criarTemplate(){
-  try{
-    const name=$('ntName').value.trim().toLowerCase().replace(/\s+/g,'_');
-    const body=$('ntBody').value.trim();
-    const wabaId=$('ntWaba').value.trim();
-    if(!name||!body||!wabaId){ $('ntOut').textContent='Preenche nome, corpo e WABA.'; return; }
-    const components=[{type:'BODY',text:body}];
-    if(/\{\{1\}\}/.test(body)) components[0].example={body_text:[['Farmácia Central']]};
-    const linhasBtn=$('ntBtns').value.split(/\n+/).map(l=>l.trim()).filter(Boolean);
-    if(linhasBtn.length){
-      const buttons=linhasBtn.map(l=>{
-        const p=l.split('|').map(s=>s.trim()); const k=(p[0]||'').toUpperCase();
-        if(k==='LINK'&&p.length>=3) return {type:'URL',text:p[1].slice(0,25),url:p[2]};
-        if(k==='RESPOSTA'&&p.length>=2) return {type:'QUICK_REPLY',text:p[1].slice(0,25)};
-        throw new Error('Botão inválido: '+l);
-      });
-      components.push({type:'BUTTONS',buttons});
-    }
-    const r=await api('/templates',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-      waba_id:wabaId, name, category:$('ntCat').value, language:'pt_BR', components,
-    })});
-    $('ntOut').textContent='SUBIU ✅ status '+(r.status||'PENDING')+' (id '+r.id+')';
-  }catch(e){ $('ntOut').textContent='ERRO: '+e; }
-}
-
-async function clonarTemplate(){
-  try{
-    const destinos=$('clDestinos').value.split(',').map(s=>s.trim()).filter(Boolean);
-    const r=await api('/templates/clonar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-      waba_origem:$('clWabaOrigem').value.trim(), name:$('clNome').value.trim(), language:$('clIdioma').value.trim(), waba_destinos:destinos,
-    })});
-    $('clOut').textContent=JSON.stringify(r.resultados,null,2);
-  }catch(e){ $('clOut').textContent='ERRO: '+e; }
 }
 
 carregar();

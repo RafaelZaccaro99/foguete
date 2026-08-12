@@ -3,7 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 16 * 1024 * 1024 } });
 const { query } = require('../db');
-const { resolverCanhoes, montarPlano, sequenciaCanhoes } = require('../disparo');
+const { resolverCanhoes, montarPlano, sequenciaCanhoes, scrubTelefones } = require('../disparo');
 const { obterGruposTemplates } = require('../templatesCache');
 const { uploadMedia, enviarTemplate } = require('../graphApi');
 const asyncHandler = require('../asyncHandler');
@@ -107,9 +107,25 @@ router.post('/:id/contatos', asyncHandler(async (req, res) => {
       telefones
     );
     const setEnviados = new Set(enviados.map(e => e.contato_telefone));
-    const antes = filtrados.length;
-    filtrados = filtrados.filter(c => !setEnviados.has(c.telefone));
-    jaEnviados = antes - filtrados.length;
+    const r = scrubTelefones(filtrados, setEnviados);
+    filtrados = r.filtrados;
+    jaEnviados = r.removidos;
+  }
+
+  // scrub da lista de não-perturbe (opt-out, denúncia, exclusão importada) — remove
+  // upfront quem não pode receber, além da checagem que o worker já faz por segurança.
+  let removidosNaoPerturbe = 0;
+  if (filtrados.length) {
+    const telefones = filtrados.map(c => c.telefone);
+    const placeholders = telefones.map(() => '?').join(',');
+    const bloqueados = await query(
+      `SELECT telefone FROM nao_perturbe WHERE telefone IN (${placeholders})`,
+      telefones
+    );
+    const setBloqueados = new Set(bloqueados.map(b => b.telefone));
+    const r = scrubTelefones(filtrados, setBloqueados);
+    filtrados = r.filtrados;
+    removidosNaoPerturbe = r.removidos;
   }
 
   const pool = poolRows.map(p => ({ numeroId: p.numero_id }));
@@ -128,7 +144,13 @@ router.post('/:id/contatos', asyncHandler(async (req, res) => {
     );
   }
 
-  res.status(201).json({ enfileirados: fila.length, ja_enviados_ignorados: jaEnviados, fora_do_plano: fora, planejado: soma });
+  res.status(201).json({
+    enfileirados: fila.length,
+    ja_enviados_ignorados: jaEnviados,
+    removidos_nao_perturbe: removidosNaoPerturbe,
+    fora_do_plano: fora,
+    planejado: soma,
+  });
 }));
 
 // Sobe o arquivo de mídia (header do template) pra cada canhão do pool.

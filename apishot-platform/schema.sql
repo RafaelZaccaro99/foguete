@@ -25,7 +25,52 @@ CREATE TABLE IF NOT EXISTS contatos (
   id INT AUTO_INCREMENT PRIMARY KEY,
   telefone VARCHAR(20) NOT NULL UNIQUE,
   nome VARCHAR(120),
+  qualificacao VARCHAR(30) NOT NULL DEFAULT 'novo',  -- estágio do lead (novo/quente/morno/frio/qualificado/descartado…)
+  numero_id INT DEFAULT NULL,                         -- último número por onde falou
+  criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Etiquetas (tags) que os agentes aplicam nos contatos.
+CREATE TABLE IF NOT EXISTS etiquetas (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nome VARCHAR(60) NOT NULL UNIQUE,
+  cor VARCHAR(20) DEFAULT '#16c95f',
   criado_em DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS contato_etiquetas (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  telefone VARCHAR(20) NOT NULL,
+  etiqueta_id INT NOT NULL,
+  criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_contato_etiqueta (telefone, etiqueta_id),
+  FOREIGN KEY (etiqueta_id) REFERENCES etiquetas(id) ON DELETE CASCADE
+);
+
+-- Agentes = automações configuráveis pela tela. Cada agente reconhece intenção por
+-- gatilhos (palavra-chave), responde com texto JÁ cadastrado (nunca gera), e pode
+-- etiquetar e/ou qualificar o lead. Substitui as 17 automações fixas do código.
+CREATE TABLE IF NOT EXISTS agentes (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nome VARCHAR(120) NOT NULL,
+  chave VARCHAR(60) DEFAULT NULL,                    -- id estável (ex: 'atendente_humano') pros seeds; NULL nos criados na tela
+  ativo BOOLEAN NOT NULL DEFAULT TRUE,
+  prioridade INT NOT NULL DEFAULT 100,               -- menor = checado antes
+  prioridade_maxima BOOLEAN NOT NULL DEFAULT FALSE,  -- roda antes de todos (ex: opt-out)
+  resposta TEXT,                                     -- texto cadastrado enviado ao lead
+  etiqueta_id INT DEFAULT NULL,                      -- etiqueta aplicada quando casa
+  qualificacao VARCHAR(30) DEFAULT NULL,             -- estágio setado no lead quando casa
+  acao_extra VARCHAR(60) DEFAULT NULL,               -- ex: adicionar_nao_perturbe
+  criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (etiqueta_id) REFERENCES etiquetas(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS agente_gatilhos (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  agente_id INT NOT NULL,
+  gatilho VARCHAR(120) NOT NULL,
+  FOREIGN KEY (agente_id) REFERENCES agentes(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS nao_perturbe (

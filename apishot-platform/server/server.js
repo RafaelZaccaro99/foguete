@@ -10,6 +10,8 @@ const numerosRoutes = require('./routes/numeros');
 const conversasRoutes = require('./routes/conversas');
 const templatesRoutes = require('./routes/templates');
 const campanhasRoutes = require('./routes/campanhas');
+const agentesRoutes = require('./routes/agentes');
+const naoPerturbeRoutes = require('./routes/naoPerturbe');
 const { atualizarQualityRatingTodosNumeros } = require('./compliance');
 const { processarFilaDisparo } = require('./filaWorker');
 const { query } = require('./db');
@@ -19,9 +21,11 @@ app.use('/numeros', numerosRoutes);
 app.use('/conversas', conversasRoutes);
 app.use('/templates', templatesRoutes);
 app.use('/campanhas', campanhasRoutes);
+app.use('/agentes', agentesRoutes);
+app.use('/nao-perturbe', naoPerturbeRoutes);
 
 app.get('/', (req, res) => {
-  res.send('Apishot Platform no ar. Rotas: /webhook · /numeros · /conversas · /templates · /campanhas');
+  res.send('Apishot Platform no ar. Rotas: /webhook · /numeros · /conversas · /templates · /campanhas · /agentes · /nao-perturbe');
 });
 
 // captura qualquer erro que escapou dos handlers (via asyncHandler ou next(err)) —
