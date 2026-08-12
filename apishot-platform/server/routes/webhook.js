@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const router = express.Router();
 const { query } = require('../db');
 const { encontrarAutomacao } = require('../automations');
@@ -6,6 +7,26 @@ const { adicionarNaoPerturbe } = require('../compliance');
 const { enviarTexto } = require('../graphApi');
 
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
+
+// Confere a assinatura que a Meta manda (X-Hub-Signature-256 = HMAC-SHA256 do corpo cru
+// com o App Secret). Sem isso, qualquer um poderia forjar uma mensagem "de um cliente"
+// e fazer o bot responder de verdade. Se META_APP_SECRET não estiver configurado (dev),
+// pula a checagem mas avisa no log — em produção, configure o secret.
+function assinaturaValida(req) {
+  const secret = process.env.META_APP_SECRET;
+  if (!secret) {
+    console.warn('META_APP_SECRET não configurado — webhook SEM verificação de assinatura (ok em dev, NÃO em produção).');
+    return true;
+  }
+  const header = req.get('X-Hub-Signature-256') || '';
+  const esperada = 'sha256=' + crypto.createHmac('sha256', secret).update(req.rawBody || Buffer.from('')).digest('hex');
+  if (header.length !== esperada.length) return false;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(header), Buffer.from(esperada));
+  } catch (e) {
+    return false;
+  }
+}
 
 async function resolverNumeroId(phoneNumberId) {
   const rows = await query('SELECT id FROM numeros WHERE phone_number_id = ? LIMIT 1', [phoneNumberId]);
@@ -47,6 +68,7 @@ router.get('/', (req, res) => {
 });
 
 router.post('/', async (req, res) => {
+  if (!assinaturaValida(req)) return res.sendStatus(401);
   res.sendStatus(200);
   try {
     const value = req.body.entry?.[0]?.changes?.[0]?.value;

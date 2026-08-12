@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apishot — Entrar</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+  body{display:flex;align-items:center;justify-content:center;padding:20px}
+  .login{width:100%;max-width:360px}
+  .brand{font-weight:900;font-size:28px;letter-spacing:1px;color:#4ef08a;text-shadow:0 0 24px rgba(37,211,102,.4);text-align:center;margin-bottom:6px}
+  .sub{color:var(--mut);text-align:center;font-size:13px;margin-bottom:22px}
+  .erro{color:var(--bad);font-size:13px;margin-top:10px;min-height:18px}
+  button{width:100%;font-size:15px;padding:13px}
+</style>
+</head>
+<body>
+<div class="login">
+  <div class="brand">🚀 APISHOT</div>
+  <div class="sub">Entre para acessar o painel</div>
+  <div class="card">
+    <label>Senha</label>
+    <input type="password" id="senha" placeholder="Sua senha" autofocus onkeydown="if(event.key==='Enter')entrar()">
+    <button onclick="entrar()">Entrar</button>
+    <div class="erro" id="erro"></div>
+  </div>
+</div>
+<script>
+async function entrar(){
+  const senha=document.getElementById('senha').value;
+  document.getElementById('erro').textContent='';
+  try{
+    const r=await fetch('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({senha})});
+    if(r.ok){ location.href='/'; return; }
+    document.getElementById('erro').textContent='Senha incorreta.';
+  }catch(e){ document.getElementById('erro').textContent='Erro ao entrar. Tente de novo.'; }
+}
+</script>
+</body>
+</html>

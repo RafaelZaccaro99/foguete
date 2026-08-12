@@ -33,6 +33,16 @@
   </div>
 
   <div class="card">
+    <h2>🔒 Trocar senha do painel</h2>
+    <div class="row">
+      <div><label>Senha atual</label><input type="password" id="senhaAtual"></div>
+      <div><label>Nova senha (mín. 6)</label><input type="password" id="senhaNova"></div>
+    </div>
+    <button onclick="trocarSenha()">Trocar senha</button>
+    <div id="senhaOut" class="hint"></div>
+  </div>
+
+  <div class="card">
     <h2>📊 Resumo</h2>
     <div class="grid" id="stats">
       <div class="stat"><b id="stNumeros">—</b><span>números conectados</span></div>
@@ -85,6 +95,16 @@ async function testarTokenInterno(token){
     const r=await api('/config/testar-token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(token?{token}:{})});
     $('tokOut').textContent='✅ Token válido — conta: '+r.nome;
   }catch(e){ $('tokOut').textContent='❌ Token inválido ou sem permissão: '+e; }
+}
+
+async function trocarSenha(){
+  const atual=$('senhaAtual').value, nova=$('senhaNova').value;
+  $('senhaOut').textContent='';
+  try{
+    await api('/auth/senha',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({atual,nova})});
+    $('senhaAtual').value='';$('senhaNova').value='';
+    $('senhaOut').textContent='✅ Senha trocada.';
+  }catch(e){ $('senhaOut').textContent='❌ '+e; }
 }
 
 async function carregarResumo(){

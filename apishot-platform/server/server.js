@@ -2,9 +2,11 @@ require('dotenv').config();
 const path = require('path');
 const express = require('express');
 const app = express();
-app.use(express.json());
-app.use(express.static(path.join(__dirname, '..', 'public')));
+// captura o corpo cru pra validar a assinatura do webhook (HMAC precisa dos bytes originais)
+app.use(express.json({ verify: (req, _res, buf) => { req.rawBody = buf; } }));
 
+const { sessaoValida, requireAuth } = require('./auth');
+const authRoutes = require('./routes/auth');
 const webhookRoutes = require('./routes/webhook');
 const numerosRoutes = require('./routes/numeros');
 const conversasRoutes = require('./routes/conversas');
@@ -18,21 +20,42 @@ const { processarFilaDisparo } = require('./filaWorker');
 const { getToken, carregar: carregarToken } = require('./tokenStore');
 const { query } = require('./db');
 
-app.use('/webhook', webhookRoutes);
-app.use('/numeros', numerosRoutes);
-app.use('/conversas', conversasRoutes);
-app.use('/templates', templatesRoutes);
-app.use('/campanhas', campanhasRoutes);
-app.use('/agentes', agentesRoutes);
-app.use('/nao-perturbe', naoPerturbeRoutes);
-app.use('/config', configRoutes);
+// health check público (sem login) — pra UptimeRobot manter o processo acordado
+app.get('/health', (req, res) => res.json({ ok: true, ts: Date.now() }));
+
+app.use('/auth', authRoutes);
+app.use('/webhook', webhookRoutes); // protegido por ASSINATURA (não por login — a Meta precisa alcançar)
+
+// Guarda das páginas: assets e login são públicos; qualquer outra página exige sessão.
+const PUBLICAS = new Set(['/login.html', '/style.css', '/app.js', '/favicon.ico']);
+app.use((req, res, next) => {
+  const p = req.path;
+  const ehPagina = p === '/' || p.endsWith('.html');
+  if (ehPagina && !PUBLICAS.has(p) && !sessaoValida(req)) {
+    return res.redirect('/login.html');
+  }
+  next();
+});
+app.use(express.static(path.join(__dirname, '..', 'public')));
+
+// APIs do painel: todas exigem login
+app.use('/numeros', requireAuth, numerosRoutes);
+app.use('/conversas', requireAuth, conversasRoutes);
+app.use('/templates', requireAuth, templatesRoutes);
+app.use('/campanhas', requireAuth, campanhasRoutes);
+app.use('/agentes', requireAuth, agentesRoutes);
+app.use('/nao-perturbe', requireAuth, naoPerturbeRoutes);
+app.use('/config', requireAuth, configRoutes);
 
 // captura qualquer erro que escapou dos handlers (via asyncHandler ou next(err)) —
 // sem isso, uma promise rejeitada (ex: MySQL fora do ar por um instante) derruba
 // o processo inteiro e tira webhook/disparo/tudo do ar por causa de UMA query.
+// O detalhe do erro é logado no servidor; pro cliente vai só uma mensagem genérica
+// (não vazar SQL/stack pra quem está do outro lado).
 app.use((err, req, res, next) => {
   console.error(err);
-  res.status(500).json({ erro: String(err) });
+  if (res.headersSent) return next(err);
+  res.status(500).json({ erro: 'erro interno' });
 });
 
 const PORT = process.env.PORT || 3000;

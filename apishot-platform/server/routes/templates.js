@@ -43,7 +43,8 @@ router.post('/', async (req, res) => {
     const r = await criarTemplate(waba_id, { name, category, language: language || 'pt_BR', components });
     res.status(201).json(r);
   } catch (erro) {
-    res.status(500).json({ erro: String(erro) });
+    // erro vindo da Meta (ex: nome duplicado, botão inválido) — é útil pro usuário ver
+    res.status(400).json({ erro: 'A Meta recusou: ' + String(erro).replace(/^Error:\s*/, '') });
   }
 });
 
@@ -62,7 +63,7 @@ router.post('/clonar', async (req, res) => {
     const resultados = await clonarTemplateEmWabas(base, waba_destinos);
     res.json({ resultados });
   } catch (erro) {
-    res.status(500).json({ erro: String(erro) });
+    res.status(400).json({ erro: 'A Meta recusou: ' + String(erro).replace(/^Error:\s*/, '') });
   }
 });
 

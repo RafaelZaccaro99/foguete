@@ -27,8 +27,15 @@
         '<span class="ic">' + ic + '</span><span>' + label + '</span></a>'
       ).join('') +
       '<div class="side-spacer"></div>' +
-      '<a class="side-token" id="sideToken" href="/">token…</a>';
+      '<a class="side-token" id="sideToken" href="/">token…</a>' +
+      '<a class="side-link" href="#" id="sideSair"><span class="ic">🚪</span><span>Sair</span></a>';
     document.body.prepend(aside);
+    const sair = document.getElementById('sideSair');
+    if (sair) sair.onclick = async (e) => {
+      e.preventDefault();
+      try { await fetch('/auth/logout', { method: 'POST' }); } catch (er) {}
+      location.href = '/login.html';
+    };
     atualizarStatusToken();
   }
 
@@ -50,9 +57,10 @@
     }
   }
 
-  // helper de API compartilhado (usado pelas páginas)
+  // helper de API compartilhado (usado pelas páginas). 401 = sessão expirou → vai pro login.
   window.api = async function (path, opts) {
     const r = await fetch(path, opts);
+    if (r.status === 401) { location.href = '/login.html'; throw new Error('nao_autenticado'); }
     const ct = r.headers.get('content-type') || '';
     const data = ct.includes('json') ? await r.json().catch(() => ({})) : null;
     if (!r.ok) throw new Error((data && data.erro) || ('HTTP ' + r.status));

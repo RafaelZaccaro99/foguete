@@ -169,17 +169,24 @@ Ok "banco $DbNome pronto (10 tabelas)"
 Etapa 'Escrevendo o .env'
 $envPath = Join-Path $App '.env'
 if (-not (Test-Path $envPath)) {
+  # senha inicial do painel e segredo de sessão gerados na hora
+  $senhaPainel = -join ((1..10) | ForEach-Object { [char[]]'abcdefghijkmnpqrstuvwxyz23456789' | Get-Random })
+  $segredo = -join ((1..48) | ForEach-Object { [char[]]'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789' | Get-Random })
 @"
+PAINEL_SENHA=$senhaPainel
+SESSION_SECRET=$segredo
 VERIFY_TOKEN=invente_uma_senha_aqui
-WHATSAPP_TOKEN=fake_por_enquanto
+META_APP_SECRET=
+WHATSAPP_TOKEN=
 DB_HOST=localhost
 DB_USER=$DbUsuario
 DB_PASS=$DbSenha
 DB_NAME=$DbNome
 PORT=3000
 "@ | Set-Content -Path $envPath -Encoding ASCII
-  Ok '.env criado (com WHATSAPP_TOKEN falso — troque pelo token real da Meta quando tiver)'
-} else { Ok '.env já existia — mantido como está' }
+  Ok ".env criado — SENHA DO PAINEL: $senhaPainel  (anote! dá pra trocar depois na tela inicial)"
+  $script:SenhaPainelNova = $senhaPainel
+} else { Ok '.env já existia — mantido como está (login e credenciais preservados)' }
 
 # --- 8. Dependências + testes + migração --------------------------------------
 Etapa 'Instalando dependências (npm install)'
@@ -213,6 +220,10 @@ Start-Process 'http://localhost:3000/'
 Write-Host ''
 Write-Host '=====================================================' -ForegroundColor Green
 Write-Host '  Pronto! O painel abriu no seu navegador.'            -ForegroundColor Green
+if ($script:SenhaPainelNova) {
+  Write-Host "  >> SENHA DO PAINEL: $($script:SenhaPainelNova)  <<" -ForegroundColor Yellow
+  Write-Host '  (anote essa senha — pede no login; dá pra trocar na tela inicial)'
+}
 Write-Host '  Tela inicial (token + resumo): http://localhost:3000/'
 Write-Host '  O menu fica na barra lateral esquerda.'
 Write-Host ''
