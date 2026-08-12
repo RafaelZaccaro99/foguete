@@ -76,9 +76,10 @@ async function processarCampanha(campanha, concorrencia, grupos) {
       poolCache.set(item.numero_id, poolRow);
     }
     const variante = grupo?.variantes.find(v => v.waba === numero.waba_id);
+    if (!variante) continue; // não deu pra confirmar o template desta conta agora (Meta instável) — fica pendente
     const template = poolRow?.modo === 'manual'
-      ? { name: poolRow.template_nome, language: poolRow.template_idioma, components: variante?.components }
-      : { name: campanha.template_nome, language: campanha.template_idioma, components: variante?.components };
+      ? { name: poolRow.template_nome, language: poolRow.template_idioma, components: variante.components }
+      : { name: campanha.template_nome, language: campanha.template_idioma, components: variante.components };
 
     try {
       const r = await enviarTemplate(numero.phone_number_id, item.telefone, item.nome, template, {

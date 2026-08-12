@@ -67,13 +67,16 @@ router.post('/', async (req, res) => {
           continue; // bloqueado por repetição — exceto opt-out, que sempre processa
         }
 
+        // registra a ação de compliance ANTES de tentar responder — se o envio da
+        // confirmação falhar (Meta fora do ar, rate limit etc.), o contato tem que
+        // entrar na lista de não-perturbe do mesmo jeito. É a prioridade 1 do bot.
+        if (automacao.acao_extra === 'adicionar_nao_perturbe') {
+          await adicionarNaoPerturbe(de, 'opt_out_automatico');
+        }
+
         try {
           await enviarTexto(phoneNumberId, de, automacao.resposta);
           ultimaExecucao.set(chave, Date.now());
-
-          if (automacao.acao_extra === 'adicionar_nao_perturbe') {
-            await adicionarNaoPerturbe(de, 'opt_out_automatico');
-          }
 
           await query(
             'INSERT INTO mensagens (numero_id, contato_telefone, direcao, texto, automacao_id, criado_em) VALUES (?, ?, "saida", ?, ?, NOW())',
