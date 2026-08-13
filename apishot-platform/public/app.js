@@ -3,6 +3,7 @@
   const NAV = [
     ['/', '🏠', 'Início'],
     ['/disparo.html', '🚀', 'Disparo'],
+    ['/email.html', '✉️', 'Email'],
     ['/conversas.html', '💬', 'Conversas'],
     ['/numeros.html', '📱', 'Números'],
     ['/templates.html', '📋', 'Templates'],

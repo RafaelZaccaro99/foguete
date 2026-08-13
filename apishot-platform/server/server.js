@@ -15,9 +15,13 @@ const campanhasRoutes = require('./routes/campanhas');
 const agentesRoutes = require('./routes/agentes');
 const naoPerturbeRoutes = require('./routes/naoPerturbe');
 const configRoutes = require('./routes/config');
+const emailRoutes = require('./routes/email');
+const emailPublicoRoutes = require('./routes/emailPublico');
 const { atualizarQualityRatingTodosNumeros } = require('./compliance');
 const { processarFilaDisparo } = require('./filaWorker');
+const { processarFilaEmail } = require('./emailFilaWorker');
 const { getToken, carregar: carregarToken } = require('./tokenStore');
+const { carregar: carregarConfigEmail } = require('./emailStore');
 const { query } = require('./db');
 
 // health check público (sem login) — pra UptimeRobot manter o processo acordado
@@ -25,6 +29,7 @@ app.get('/health', (req, res) => res.json({ ok: true, ts: Date.now() }));
 
 app.use('/auth', authRoutes);
 app.use('/webhook', webhookRoutes); // protegido por ASSINATURA (não por login — a Meta precisa alcançar)
+app.use('/e', emailPublicoRoutes);  // rastreio/descadastro de email — protegido por assinatura HMAC nos links
 
 // Guarda das páginas: assets e login são públicos; qualquer outra página exige sessão.
 const PUBLICAS = new Set(['/login.html', '/style.css', '/app.js', '/favicon.ico']);
@@ -46,6 +51,7 @@ app.use('/campanhas', requireAuth, campanhasRoutes);
 app.use('/agentes', requireAuth, agentesRoutes);
 app.use('/nao-perturbe', requireAuth, naoPerturbeRoutes);
 app.use('/config', requireAuth, configRoutes);
+app.use('/email', requireAuth, emailRoutes);
 
 // captura qualquer erro que escapou dos handlers (via asyncHandler ou next(err)) —
 // sem isso, uma promise rejeitada (ex: MySQL fora do ar por um instante) derruba
@@ -63,6 +69,7 @@ app.listen(PORT, () => console.log(`Apishot Platform rodando na porta ${PORT}`))
 
 // carrega o token salvo (config da tela) por cima do .env, assim que o banco estiver pronto
 carregarToken().catch(() => {});
+carregarConfigEmail().catch(() => {});
 
 // monitora quality rating de todos os números a cada 1h (e promove aquecendo → ativo)
 const UMA_HORA = 60 * 60 * 1000;
@@ -98,5 +105,19 @@ setInterval(async () => {
   }
   setInterval(() => {
     processarFilaDisparo().catch(console.error);
+  }, segundos * 1000);
+})();
+
+// worker da fila de EMAIL — mesmo modelo do disparo (intervalo lido no start)
+(async () => {
+  let segundos = 60;
+  try {
+    const cfg = await query("SELECT valor FROM config WHERE chave = 'email_intervalo_segundos'");
+    segundos = parseInt(cfg[0]?.valor) || 60;
+  } catch (erro) {
+    console.error('Não deu pra ler email_intervalo_segundos do config, usando 60s padrão.', erro);
+  }
+  setInterval(() => {
+    processarFilaEmail().catch(console.error);
   }, segundos * 1000);
 })();

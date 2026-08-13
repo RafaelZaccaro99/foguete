@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apishot — Email</title>
+<link rel="stylesheet" href="/style.css">
+<script defer src="/app.js"></script>
+<style>
+  :root{
+    --bg0:#0a0b12;--bg1:#12131d;--glass:rgba(28,30,44,.72);--line:rgba(255,255,255,.08);
+    --tx:#eef1f8;--mut:#98a1b8;--go:#25d366;--warn:#f6b73c;--bad:#ff5c6c;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif;color:var(--tx);
+    background:linear-gradient(180deg,var(--bg0),var(--bg1));background-attachment:fixed;min-height:100vh;padding:28px 18px 60px}
+  .card{background:var(--glass);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:18px;padding:22px;margin-bottom:16px}
+  .card h2{font-size:15.5px;margin-bottom:14px}
+  .pill{display:inline-block;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:999px;padding:2px 10px;font-size:11px;color:var(--mut);margin:2px 4px 2px 0}
+  .pill.g{color:var(--go);border-color:rgba(37,211,102,.3)}.pill.w{color:var(--warn);border-color:rgba(246,183,60,.3)}.pill.b{color:var(--bad);border-color:rgba(255,92,108,.3)}
+  button{border:none;color:#fff;font-weight:700;font-size:12.5px;padding:8px 14px;border-radius:9px;cursor:pointer;margin:2px;background:linear-gradient(135deg,#16c95f,#0a8f43)}
+  button.ghost{background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--tx)}
+  button.warn{background:linear-gradient(135deg,#f6b73c,#c98a16)}
+  input,select,textarea{width:100%;background:rgba(6,7,12,.75);border:1px solid var(--line);border-radius:11px;color:var(--tx);padding:10px 12px;font-size:13.5px;font-family:inherit;margin-top:6px}
+  label{display:block;font-size:12.5px;color:var(--mut);margin-top:12px;font-weight:600}
+  .row{display:flex;gap:12px;flex-wrap:wrap}.row>div{flex:1;min-width:180px}
+  .hint{font-size:12px;color:var(--mut);margin-top:8px}
+  .out{background:rgba(4,5,9,.8);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:12px;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;white-space:pre-wrap;color:#cbd4e6}
+  .camp{border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+  .camp h3{font-size:14px;margin-bottom:6px}
+  .chk{display:flex;align-items:center;gap:8px;margin-top:12px}
+  .chk input{width:auto;margin:0}
+</style>
+</head>
+<body>
+<main class="content">
+  <div class="page-title">✉️ Email</div>
+  <div class="page-sub">Disparo de campanhas por email — SMTP próprio, fila com limite por hora, descadastro e rastreio de abertura/clique.</div>
+
+  <div class="card">
+    <h2>Servidor de envio (SMTP)</h2>
+    <div class="row">
+      <div><label>Servidor SMTP</label><input id="cfHost" placeholder="smtp.hostinger.com"></div>
+      <div style="max-width:120px"><label>Porta</label><input id="cfPorta" placeholder="465"></div>
+      <div><label>Usuário</label><input id="cfUsuario" placeholder="contato@seudominio.com.br"></div>
+      <div><label>Senha</label><input id="cfSenha" type="password" placeholder="(em branco = manter a atual)"></div>
+    </div>
+    <div class="row">
+      <div><label>Email do remetente</label><input id="cfRemetente" placeholder="contato@seudominio.com.br"></div>
+      <div><label>Nome do remetente</label><input id="cfRemetenteNome" placeholder="Vendi+"></div>
+      <div><label>URL pública do painel (pros links de rastreio/descadastro)</label><input id="cfBaseUrl" placeholder="https://painel.seudominio.com.br"></div>
+    </div>
+    <div class="chk"><input type="checkbox" id="cfSeguro" checked><label style="margin:0">Conexão segura (SSL direto — porta 465)</label></div>
+    <div style="margin-top:12px">
+      <button onclick="salvarConfig()">💾 Salvar</button>
+      <button class="ghost" onclick="testarConfig()">🔌 Testar conexão</button>
+      <span id="cfStatus" class="pill">…</span>
+    </div>
+    <div class="hint">Funciona com qualquer SMTP: Hostinger (smtp.hostinger.com, porta 465), Gmail com senha de app (smtp.gmail.com, 465), Brevo, etc.
+      Sem a URL pública, o email sai sem pixel de abertura e <b>sem o link de descadastro</b> — configure antes de campanha de verdade.</div>
+    <div class="out" id="cfOut">A senha fica só no servidor — aqui nunca aparece.</div>
+  </div>
+
+  <div class="card">
+    <h2>Nova campanha</h2>
+    <div class="row">
+      <div><label>Nome da campanha (interno)</label><input id="ncNome" placeholder="iFood farmácias — agosto"></div>
+      <div><label>Assunto</label><input id="ncAssunto" placeholder="Sua farmácia foi selecionada pro iFood"></div>
+    </div>
+    <label>Corpo (texto — pode usar {{nome}} e {{email}}; links http(s) viram clicáveis e rastreados)</label>
+    <textarea id="ncCorpo" style="min-height:140px" placeholder="Olá {{nome}}, ..."></textarea>
+    <label>Lista de contatos (um por linha — "email" ou "nome;email")</label>
+    <textarea id="ncLista" style="min-height:90px" placeholder="Farmácia Central;contato@farmaciacentral.com.br&#10;drogariasilva@gmail.com"></textarea>
+    <div class="chk"><input type="checkbox" id="ncDedupe" checked><label style="margin:0">Ignorar quem já recebeu email em outra campanha</label></div>
+    <button onclick="criarCampanha()">🚀 Criar campanha e enfileirar lista</button>
+    <div class="out" id="ncOut">A campanha nasce como rascunho — você inicia na lista abaixo quando quiser.</div>
+  </div>
+
+  <div class="card">
+    <h2>Campanhas</h2>
+    <button class="ghost" onclick="carregarCampanhas()">🔄 Atualizar</button>
+    <div id="listaCampanhas" style="margin-top:14px">Carregando…</div>
+  </div>
+
+  <div class="card">
+    <h2>Adicionar contatos a uma campanha existente</h2>
+    <div class="row">
+      <div><label>Campanha</label><select id="adCampanha"></select></div>
+    </div>
+    <label>Lista (um por linha — "email" ou "nome;email")</label>
+    <textarea id="adLista" style="min-height:80px"></textarea>
+    <button onclick="adicionarContatos()">➕ Enfileirar</button>
+    <div class="out" id="adOut">Passa pelo mesmo dedupe e scrub de descadastro.</div>
+  </div>
+
+  <div class="card">
+    <h2>Teste de envio</h2>
+    <div class="row">
+      <div><label>Email de destino</label><input id="tsEmail" placeholder="voce@gmail.com"></div>
+      <div><label>Nome (pro {{nome}})</label><input id="tsNome" placeholder="Larissa"></div>
+    </div>
+    <div class="row">
+      <div><label>Assunto</label><input id="tsAssunto"></div>
+    </div>
+    <label>Corpo</label>
+    <textarea id="tsCorpo" style="min-height:90px"></textarea>
+    <button class="ghost" onclick="usarDaCampanha()">📋 Copiar da "Nova campanha"</button>
+    <button onclick="testeEnvio()">✉️ Enviar teste</button>
+    <div class="out" id="tsOut">Envio único, na hora, fora da fila — sem rastreio.</div>
+  </div>
+
+  <div class="card">
+    <h2>Descadastro</h2>
+    <div class="hint">Quem clicar em "descadastrar" no rodapé de qualquer email entra aqui sozinho e nunca mais recebe. Dá pra importar exclusões na mão também.</div>
+    <label>Importar emails pra lista de exclusão (um por linha)</label>
+    <textarea id="dcLista" style="min-height:60px"></textarea>
+    <button class="warn" onclick="importarDescadastro()">🚫 Importar exclusões</button>
+    <button class="ghost" onclick="carregarDescadastro()">👀 Ver lista</button>
+    <div class="out" id="dcOut">…</div>
+  </div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+async function api(path,opts){
+  const r=await fetch(path,opts);
+  if(r.status===401){location.href='/login.html';throw new Error('nao_autenticado');}
+  const data=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(data.erro||('HTTP '+r.status));
+  return data;
+}
+const post=(path,body)=>api(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});
+
+// ---------- config ----------
+async function carregarConfig(){
+  try{
+    const c=await api('/email/config');
+    $('cfHost').value=c.host||''; $('cfPorta').value=c.porta||''; $('cfUsuario').value=c.usuario||'';
+    $('cfRemetente').value=c.remetente||''; $('cfRemetenteNome').value=c.remetente_nome||'';
+    $('cfBaseUrl').value=c.base_url||''; $('cfSeguro').checked=!!c.seguro||c.porta===465;
+    $('cfStatus').className='pill '+(c.configurado?'g':'w');
+    $('cfStatus').textContent=c.configurado?'SMTP configurado ✅':'SMTP não configurado';
+    if(c.senha_definida) $('cfSenha').placeholder='••••••••  (em branco = manter a atual)';
+  }catch(e){ $('cfOut').textContent='Erro ao carregar config: '+e; }
+}
+async function salvarConfig(){
+  try{
+    await post('/email/config',{
+      host:$('cfHost').value.trim(), porta:$('cfPorta').value.trim(), usuario:$('cfUsuario').value.trim(),
+      senha:$('cfSenha').value, seguro:$('cfSeguro').checked,
+      remetente:$('cfRemetente').value.trim(), remetente_nome:$('cfRemetenteNome').value.trim(),
+      base_url:$('cfBaseUrl').value.trim(),
+    });
+    $('cfSenha').value='';
+    $('cfOut').textContent='Salvo ✅ — agora clique em Testar conexão.';
+    carregarConfig();
+  }catch(e){ $('cfOut').textContent='ERRO: '+e; }
+}
+async function testarConfig(){
+  $('cfOut').textContent='Testando conexão com o servidor SMTP…';
+  try{ await post('/email/config/testar'); $('cfOut').textContent='Conexão OK ✅ — pronto pra enviar.'; }
+  catch(e){ $('cfOut').textContent='FALHOU: '+e+'\nConfere servidor, porta, usuário e senha.'; }
+}
+
+// ---------- campanhas ----------
+async function criarCampanha(){
+  try{
+    const nome=$('ncNome').value.trim(), assunto=$('ncAssunto').value.trim(), corpo=$('ncCorpo').value.trim();
+    if(!nome||!assunto||!corpo){ $('ncOut').textContent='Preenche nome, assunto e corpo.'; return; }
+    const r=await post('/email/campanhas',{nome,assunto,corpo});
+    let msg='Campanha #'+r.id+' criada ✅';
+    const lista=$('ncLista').value.trim();
+    if(lista){
+      const f=await post('/email/campanhas/'+r.id+'/contatos',{lista,ignorar_ja_enviados:$('ncDedupe').checked});
+      msg+='\nEnfileirados: '+f.enfileirados+
+        (f.ja_enviados_ignorados?' • já tinham recebido: '+f.ja_enviados_ignorados:'')+
+        (f.removidos_descadastro?' • descadastrados removidos: '+f.removidos_descadastro:'')+
+        (f.invalidos.length?'\nLinhas inválidas: '+f.invalidos.join(' | '):'');
+    }
+    $('ncOut').textContent=msg+'\nInicia na lista de campanhas quando quiser.';
+    carregarCampanhas();
+  }catch(e){ $('ncOut').textContent='ERRO: '+e; }
+}
+
+const ST_PILL={rascunho:'',em_andamento:'g',pausada:'w',concluida:''};
+async function carregarCampanhas(){
+  try{
+    const campanhas=await api('/email/campanhas');
+    if(!campanhas.length){ $('listaCampanhas').innerHTML='<div class="hint">Nenhuma campanha ainda.</div>'; }
+    else $('listaCampanhas').innerHTML=campanhas.map(c=>{
+      const n=k=>Number(c[k])||0;
+      return '<div class="camp"><h3>#'+c.id+' — '+esc(c.nome)+' <span class="pill '+(ST_PILL[c.status]||'')+'">'+esc(c.status)+'</span></h3>'+
+        '<div class="hint">'+esc(c.assunto)+'</div>'+
+        '<div style="margin:8px 0">'+
+          '<span class="pill">pendente: '+n('pendente')+'</span>'+
+          '<span class="pill g">enviada: '+n('enviada')+'</span>'+
+          '<span class="pill w">bloqueada: '+n('bloqueada')+'</span>'+
+          '<span class="pill b">falhou: '+n('falhou')+'</span>'+
+          '<span class="pill">abertos: '+n('abertos')+'</span>'+
+          '<span class="pill">cliques: '+n('cliques')+'</span>'+
+        '</div>'+
+        (c.status==='em_andamento'
+          ?'<button class="warn" onclick="mudarStatus('+c.id+',\'pausar\')">⏸️ Pausar</button>'
+          :'<button onclick="mudarStatus('+c.id+',\'iniciar\')">▶️ Iniciar</button>')+
+        '<a href="/email/campanhas/'+c.id+'/relatorio.csv"><button class="ghost">⬇️ Relatório CSV</button></a>'+
+      '</div>';
+    }).join('');
+    $('adCampanha').innerHTML=campanhas.map(c=>'<option value="'+c.id+'">#'+c.id+' — '+esc(c.nome)+'</option>').join('');
+  }catch(e){ $('listaCampanhas').innerHTML='<div class="hint">Erro: '+esc(String(e))+'</div>'; }
+}
+async function mudarStatus(id,acao){
+  try{ await api('/email/campanhas/'+id+'/'+acao,{method:'POST'}); carregarCampanhas(); }
+  catch(e){ alert('Erro: '+e); }
+}
+async function adicionarContatos(){
+  try{
+    const id=$('adCampanha').value;
+    if(!id){ $('adOut').textContent='Crie uma campanha primeiro.'; return; }
+    const f=await post('/email/campanhas/'+id+'/contatos',{lista:$('adLista').value});
+    $('adOut').textContent='Enfileirados: '+f.enfileirados+
+      (f.ja_enviados_ignorados?' • já tinham recebido: '+f.ja_enviados_ignorados:'')+
+      (f.removidos_descadastro?' • descadastrados removidos: '+f.removidos_descadastro:'')+
+      (f.invalidos.length?'\nLinhas inválidas: '+f.invalidos.join(' | '):'');
+    $('adLista').value='';
+    carregarCampanhas();
+  }catch(e){ $('adOut').textContent='ERRO: '+e; }
+}
+
+// ---------- teste ----------
+function usarDaCampanha(){
+  $('tsAssunto').value=$('ncAssunto').value;
+  $('tsCorpo').value=$('ncCorpo').value;
+}
+async function testeEnvio(){
+  $('tsOut').textContent='Enviando…';
+  try{
+    const r=await post('/email/teste-envio',{
+      email:$('tsEmail').value.trim(), nome:$('tsNome').value.trim(),
+      assunto:$('tsAssunto').value.trim(), corpo:$('tsCorpo').value.trim(),
+    });
+    $('tsOut').textContent='ENVIADO ✅ '+(r.message_id||'');
+  }catch(e){ $('tsOut').textContent='ERRO: '+e; }
+}
+
+// ---------- descadastro ----------
+async function importarDescadastro(){
+  try{
+    const r=await post('/email/descadastro/importar',{lista:$('dcLista').value});
+    $('dcOut').textContent='Importados: '+r.importados;
+    $('dcLista').value='';
+  }catch(e){ $('dcOut').textContent='ERRO: '+e; }
+}
+async function carregarDescadastro(){
+  try{
+    const rows=await api('/email/descadastro');
+    $('dcOut').textContent=rows.length
+      ? rows.map(r=>r.email+'  ('+r.origem+')').join('\n')
+      : 'Lista vazia — ninguém se descadastrou ainda.';
+  }catch(e){ $('dcOut').textContent='ERRO: '+e; }
+}
+
+carregarConfig(); carregarCampanhas();
+</script>
+</body>
+</html>

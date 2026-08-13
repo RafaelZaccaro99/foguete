@@ -61,6 +61,46 @@ navegador) — ou pelo `WHATSAPP_TOKEN` do `.env` como fallback.
 | `GET /conversas` · `GET /conversas/:telefone` | Lista de contatos e thread |
 | `POST /conversas/:telefone/responder` | Resposta manual (só após automação "atendente_humano") |
 
+## Módulo Email
+
+Disparo de campanhas por **email** com a mesma filosofia do WhatsApp: fila + worker +
+compliance. Tela nova no painel (✉️ Email), SMTP próprio (Hostinger, Gmail com senha de
+app, Brevo — qualquer um), sem custo por envio.
+
+- `server/emailStore.js` — config SMTP/remetente (tela → banco, .env como fallback; a
+  senha nunca vai pro navegador).
+- `server/emailDisparo.js` — funções puras: validação/normalização da lista colada,
+  variáveis `{{nome}}`/`{{email}}`, texto → HTML com auto-link, assinatura HMAC dos
+  links públicos e rastreio (pixel de abertura, redirect de clique, rodapé de
+  descadastro). Testado em `test/email.test.js`.
+- `server/emailSender.js` — envio via nodemailer num lugar só.
+- `server/emailFilaWorker.js` — worker em intervalo (`email_intervalo_segundos`):
+  respeita a MESMA janela de horário do WhatsApp, a lista `email_descadastro`, o
+  limite deslizante por hora (`email_limite_hora`, protege a reputação do domínio) e
+  re-tenta só erro transitório (`email_max_tentativas`).
+- `server/routes/email.js` — API do painel (atrás de login, em `/email`).
+- `server/routes/emailPublico.js` — rotas públicas em `/e` (pixel, clique,
+  descadastro), protegidas por assinatura HMAC em cada link — sem assinatura válida
+  responde 404, e o redirect de clique só aceita a URL que foi assinada no envio
+  (não vira open-redirect).
+
+| Rota | O que faz |
+|---|---|
+| `GET/POST /email/config` · `POST /email/config/testar` | Config SMTP (mascarada) e teste de conexão |
+| `POST /email/campanhas` | Cria campanha (nome, assunto, corpo) |
+| `POST /email/campanhas/:id/contatos` | Enfileira a lista colada (dedupe + scrub descadastro) |
+| `POST /email/campanhas/:id/iniciar` · `/pausar` | Liga/desliga a fila |
+| `GET /email/campanhas` · `/:id` | Campanhas com contadores + abertos/cliques |
+| `GET /email/campanhas/:id/relatorio.csv` | Relatório com abertura/clique por contato |
+| `POST /email/teste-envio` | 1 envio avulso de teste (sem rastreio) |
+| `GET /email/descadastro` · `POST /email/descadastro/importar` | Lista de exclusão |
+| `GET /e/abrir/:id/:sig.gif` · `/e/clique/:id/:sig` · `/e/descadastro/:id/:sig` | Rastreio público (assinado) |
+
+**Importante:** preencha a "URL pública do painel" na tela de config — sem ela o email
+sai sem pixel e **sem link de descadastro** (ok pra teste, não pra campanha de verdade).
+Quem já tinha o banco: rode o `schema.sql` de novo (só cria as tabelas novas) — não
+precisa de migrate.
+
 ## O que ficou de fora de propósito
 
 O `exportDucke()` do Foguete antigo foi removido — era o hand-off pro sistema da Ducke,

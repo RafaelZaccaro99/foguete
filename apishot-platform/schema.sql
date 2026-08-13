@@ -149,6 +149,41 @@ CREATE TABLE IF NOT EXISTS eventos_log (
   criado_em DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- ---------- Módulo Email ----------
+
+CREATE TABLE IF NOT EXISTS email_campanhas (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nome VARCHAR(160) NOT NULL,
+  assunto VARCHAR(200) NOT NULL,
+  corpo TEXT NOT NULL,                 -- texto com {{nome}}/{{email}}; vira HTML no envio
+  status ENUM('rascunho','em_andamento','pausada','concluida') NOT NULL DEFAULT 'rascunho',
+  criado_em DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS email_fila (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  campanha_id INT NOT NULL,
+  email VARCHAR(200) NOT NULL,
+  nome VARCHAR(120),
+  status ENUM('pendente','enviada','bloqueada','falhou') NOT NULL DEFAULT 'pendente',
+  motivo VARCHAR(60) DEFAULT NULL,
+  message_id VARCHAR(255) DEFAULT NULL, -- id devolvido pelo servidor SMTP
+  tentativas INT NOT NULL DEFAULT 0,
+  aberto_em DATETIME DEFAULT NULL,      -- pixel de abertura
+  clicado_em DATETIME DEFAULT NULL,     -- rastreio de clique
+  criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (campanha_id) REFERENCES email_campanhas(id)
+);
+
+-- lista de exclusão do email (equivalente ao nao_perturbe do WhatsApp)
+CREATE TABLE IF NOT EXISTS email_descadastro (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  email VARCHAR(200) NOT NULL UNIQUE,
+  origem ENUM('link_descadastro','upload_manual','bounce') NOT NULL,
+  criado_em DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS config (
   chave VARCHAR(60) PRIMARY KEY,
   valor VARCHAR(255) NOT NULL
@@ -162,5 +197,9 @@ INSERT INTO config (chave, valor) VALUES
   ('disparo_concorrencia', '8'),
   ('disparo_intervalo_segundos', '30'),
   ('disparo_max_tentativas', '3'),
-  ('log_retencao_dias', '90')
+  ('log_retencao_dias', '90'),
+  ('email_lote', '5'),
+  ('email_limite_hora', '100'),
+  ('email_intervalo_segundos', '60'),
+  ('email_max_tentativas', '3')
 ON DUPLICATE KEY UPDATE valor = VALUES(valor);
