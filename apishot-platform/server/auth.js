@@ -8,6 +8,7 @@
  */
 const crypto = require('crypto');
 const { query } = require('./db');
+const { cookieSeguro } = require('./env');
 
 const COOKIE = 'apishot_sess';
 const VALIDADE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -60,15 +61,19 @@ function assinar(payloadB64) {
   return crypto.createHmac('sha256', segredoSessao()).update(payloadB64).digest('hex');
 }
 
+// Secure só entra quando o site é servido por HTTPS (produção): num deploy HTTP o
+// navegador descartaria o cookie e o login entraria em loop.
+const atributos = () => `HttpOnly; SameSite=Lax; Path=/${cookieSeguro() ? '; Secure' : ''}`;
+
 function criarSessao(res) {
   const payload = Buffer.from(JSON.stringify({ exp: Date.now() + VALIDADE_MS })).toString('base64');
   const cookie = `${payload}.${assinar(payload)}`;
   res.setHeader('Set-Cookie',
-    `${COOKIE}=${cookie}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${VALIDADE_MS / 1000}`);
+    `${COOKIE}=${cookie}; ${atributos()}; Max-Age=${VALIDADE_MS / 1000}`);
 }
 
 function limparSessao(res) {
-  res.setHeader('Set-Cookie', `${COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`);
+  res.setHeader('Set-Cookie', `${COOKIE}=; ${atributos()}; Max-Age=0`);
 }
 
 function lerCookie(req, nome) {

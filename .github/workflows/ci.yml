@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+defaults:
+  run:
+    working-directory: apishot-platform
+
+jobs:
+  testes:
+    name: Testes unitários
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apishot-platform/package-lock.json
+      - run: npm ci
+      - run: npm test
+
+  deploy_smoke:
+    name: Boot real (MySQL + schema + painel de pé)
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: raiz
+          MYSQL_DATABASE: apishot
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -u root -praiz"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    env:
+      NODE_ENV: production
+      DB_HOST: 127.0.0.1
+      DB_USER: root
+      DB_PASS: raiz
+      DB_NAME: apishot
+      PORT: 3000
+      PAINEL_SENHA: senha-de-teste
+      SESSION_SECRET: 0123456789abcdef0123456789abcdef0123456789abcdef
+      VERIFY_TOKEN: token-de-teste
+      META_APP_SECRET: segredo-de-teste
+      COOKIE_SECURE: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apishot-platform/package-lock.json
+      - run: npm ci
+
+      # o mesmo caminho do deploy: schema + migração + agentes-padrão, do zero
+      - name: Preparar banco
+        run: npm run bootstrap
+
+      # e de novo, pra provar que rodar duas vezes não estraga nada (idempotência)
+      - name: Preparar banco de novo (idempotência)
+        run: npm run bootstrap
+
+      - name: Subir o app e conferir as rotas
+        run: |
+          npm start &
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:3000/health && break || sleep 2
+          done
+          curl -sf http://127.0.0.1:3000/health > /dev/null
+          curl -sf http://127.0.0.1:3000/health/db > /dev/null
+          # sem sessão, uma página do painel redireciona pro login
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/numeros.html)" = "302"
+          # e a API responde 401 em vez de vazar dado
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/numeros)" = "401"
+          # login com a senha certa cria sessão
+          curl -sf -X POST http://127.0.0.1:3000/auth/login \
+            -H 'Content-Type: application/json' -d '{"senha":"senha-de-teste"}' > /dev/null
+
+  imagem:
+    name: Build da imagem Docker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t apishot-platform:ci .

@@ -1,0 +1,52 @@
+# Sobe a plataforma inteira (app + MySQL) com um comando:
+#
+#   cp .env.example .env    # preenche PAINEL_SENHA, SESSION_SECRET, VERIFY_TOKEN, META_APP_SECRET
+#   docker compose up -d
+#
+# O app aplica schema, migrações e agentes-padrão sozinho no boot — não precisa
+# phpMyAdmin nem rodar script na mão.
+
+services:
+  banco:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_NAME:-apishot}
+      MYSQL_USER: ${DB_USER:-apishot}
+      MYSQL_PASSWORD: ${DB_PASS:?defina DB_PASS no .env}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASS:?defina DB_ROOT_PASS no .env}
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - dados-mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p${DB_ROOT_PASS}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      banco:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_HOST: banco
+      DB_NAME: ${DB_NAME:-apishot}
+      DB_USER: ${DB_USER:-apishot}
+      DB_PASS: ${DB_PASS}
+      PAINEL_SENHA: ${PAINEL_SENHA}
+      SESSION_SECRET: ${SESSION_SECRET}
+      VERIFY_TOKEN: ${VERIFY_TOKEN}
+      META_APP_SECRET: ${META_APP_SECRET}
+      WHATSAPP_TOKEN: ${WHATSAPP_TOKEN:-}
+      # o app fica atrás de um proxy com HTTPS (nginx/Caddy/Cloudflare) na frente
+      TRUST_PROXY: ${TRUST_PROXY:-1}
+    ports:
+      - "${PORTA_EXTERNA:-3000}:3000"
+
+volumes:
+  dados-mysql:

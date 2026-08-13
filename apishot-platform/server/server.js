@@ -1,9 +1,30 @@
 require('dotenv').config();
 const path = require('path');
 const express = require('express');
+const { conferirOuMorrer, ehProducao } = require('./env');
+
+// Antes de qualquer coisa: se a configuração está incompleta/insegura, nem sobe.
+conferirOuMorrer();
+
 const app = express();
+
+// Atrás de proxy (Hostinger, nginx, Railway, Render, Cloudflare) o IP real e o
+// protocolo chegam nos headers X-Forwarded-*. Sem isso o freio de login vê todo mundo
+// como o mesmo IP (o do proxy) e o req.secure é sempre falso.
+app.set('trust proxy', process.env.TRUST_PROXY || 1);
+app.disable('x-powered-by');
+
+// Cabeçalhos de segurança básicos (o painel não carrega nada de terceiros).
+app.use((req, res, next) => {
+  res.set('X-Content-Type-Options', 'nosniff');
+  res.set('X-Frame-Options', 'DENY');
+  res.set('Referrer-Policy', 'same-origin');
+  if (ehProducao()) res.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  next();
+});
+
 // captura o corpo cru pra validar a assinatura do webhook (HMAC precisa dos bytes originais)
-app.use(express.json({ verify: (req, _res, buf) => { req.rawBody = buf; } }));
+app.use(express.json({ limit: '1mb', verify: (req, _res, buf) => { req.rawBody = buf; } }));
 
 const { sessaoValida, requireAuth } = require('./auth');
 const authRoutes = require('./routes/auth');
@@ -18,10 +39,24 @@ const configRoutes = require('./routes/config');
 const { atualizarQualityRatingTodosNumeros } = require('./compliance');
 const { processarFilaDisparo } = require('./filaWorker');
 const { getToken, carregar: carregarToken } = require('./tokenStore');
-const { query } = require('./db');
+const { bootstrap } = require('./bootstrap');
+const { pool, query } = require('./db');
 
-// health check público (sem login) — pra UptimeRobot manter o processo acordado
+// health check público (sem login) — pra UptimeRobot manter o processo acordado.
+// Não toca no banco de propósito: é prova de vida do processo, e um blip do MySQL não
+// pode fazer a plataforma ser reiniciada por um health check.
 app.get('/health', (req, res) => res.json({ ok: true, ts: Date.now() }));
+
+// readiness: esse SIM confere o banco — pra monitorar de verdade / debugar deploy
+app.get('/health/db', async (req, res) => {
+  try {
+    await query('SELECT 1');
+    res.json({ ok: true, banco: 'ok' });
+  } catch (erro) {
+    console.error('health/db falhou:', erro.message);
+    res.status(503).json({ ok: false, banco: 'indisponivel' });
+  }
+});
 
 app.use('/auth', authRoutes);
 app.use('/webhook', webhookRoutes); // protegido por ASSINATURA (não por login — a Meta precisa alcançar)
@@ -59,36 +94,34 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Apishot Platform rodando na porta ${PORT}`));
-
-// carrega o token salvo (config da tela) por cima do .env, assim que o banco estiver pronto
-carregarToken().catch(() => {});
-
-// monitora quality rating de todos os números a cada 1h (e promove aquecendo → ativo)
 const UMA_HORA = 60 * 60 * 1000;
-setInterval(() => {
-  atualizarQualityRatingTodosNumeros(getToken()).catch(console.error);
-}, UMA_HORA);
+const timers = [];
 
-// limpeza diária do eventos_log (a tabela cresce pra sempre) — aproveita o tick horário,
-// mas só executa de fato 1x/dia (guarda a última data). Retenção configurável.
-let ultimaLimpezaLog = null;
-setInterval(async () => {
-  const hoje = new Date().toISOString().slice(0, 10);
-  if (ultimaLimpezaLog === hoje) return;
-  ultimaLimpezaLog = hoje;
-  try {
-    const cfg = await query("SELECT valor FROM config WHERE chave = 'log_retencao_dias'");
-    const dias = parseInt(cfg[0]?.valor) || 90;
-    await query('DELETE FROM eventos_log WHERE criado_em < (NOW() - INTERVAL ? DAY)', [dias]);
-  } catch (erro) {
-    console.error('Falha na limpeza do eventos_log:', erro);
-  }
-}, UMA_HORA);
+/** Rotinas de fundo: monitor de qualidade, limpeza de log e worker da fila. */
+async function iniciarRotinas() {
+  // monitora quality rating de todos os números a cada 1h (e promove aquecendo → ativo)
+  timers.push(setInterval(() => {
+    atualizarQualityRatingTodosNumeros(getToken()).catch(console.error);
+  }, UMA_HORA));
 
-// worker da fila de disparo — intervalo lido do config no start (ajustável no banco,
-// só precisa reiniciar o processo pra pegar uma mudança de intervalo)
-(async () => {
+  // limpeza diária do eventos_log (a tabela cresce pra sempre) — aproveita o tick horário,
+  // mas só executa de fato 1x/dia (guarda a última data). Retenção configurável.
+  let ultimaLimpezaLog = null;
+  timers.push(setInterval(async () => {
+    const hoje = new Date().toISOString().slice(0, 10);
+    if (ultimaLimpezaLog === hoje) return;
+    ultimaLimpezaLog = hoje;
+    try {
+      const cfg = await query("SELECT valor FROM config WHERE chave = 'log_retencao_dias'");
+      const dias = parseInt(cfg[0]?.valor) || 90;
+      await query('DELETE FROM eventos_log WHERE criado_em < (NOW() - INTERVAL ? DAY)', [dias]);
+    } catch (erro) {
+      console.error('Falha na limpeza do eventos_log:', erro);
+    }
+  }, UMA_HORA));
+
+  // worker da fila de disparo — intervalo lido do config no start (ajustável no banco,
+  // só precisa reiniciar o processo pra pegar uma mudança de intervalo)
   let segundos = 30;
   try {
     const cfg = await query("SELECT valor FROM config WHERE chave = 'disparo_intervalo_segundos'");
@@ -96,7 +129,63 @@ setInterval(async () => {
   } catch (erro) {
     console.error('Não deu pra ler disparo_intervalo_segundos do config, usando 30s padrão.', erro);
   }
-  setInterval(() => {
+  timers.push(setInterval(() => {
     processarFilaDisparo().catch(console.error);
-  }, segundos * 1000);
-})();
+  }, segundos * 1000));
+}
+
+async function subir() {
+  // Prepara o banco antes de aceitar tráfego: schema, migrações e agentes-padrão.
+  // Quem prefere fazer isso na mão (phpMyAdmin/SSH) desliga com BOOTSTRAP_DB=false.
+  if (process.env.BOOTSTRAP_DB !== 'false') {
+    const r = await bootstrap();
+    console.log('banco pronto —',
+      r.colunas.length ? `colunas migradas: ${r.colunas.join(', ')};` : 'nada a migrar;',
+      r.agentes.pulado ? `agentes já carregados (${r.agentes.total})` : `${r.agentes.criados} agentes criados`);
+  }
+
+  // carrega o token salvo (config da tela) por cima do .env
+  await carregarToken().catch(() => {});
+
+  const servidor = app.listen(PORT, () => console.log(`Apishot Platform rodando na porta ${PORT}`));
+  await iniciarRotinas();
+  return servidor;
+}
+
+/**
+ * Desligar limpo: para de aceitar conexão nova, deixa as em andamento terminarem e
+ * fecha o pool. Importa porque o worker de disparo está no meio de envios — matar o
+ * processo no grito deixa registro na fila em estado ambíguo. 10s de teto pro caso
+ * de uma conexão travada segurar o processo pra sempre.
+ */
+function desligar(servidor, sinal) {
+  console.log(`recebido ${sinal} — desligando`);
+  for (const t of timers) clearInterval(t);
+  servidor.close(async () => {
+    await pool.end().catch(() => {});
+    console.log('desligado');
+    process.exit(0);
+  });
+  // conexões keep-alive ociosas (o painel deixa várias abertas) segurariam o close()
+  // até o timeout; as que estão no meio de uma requisição continuam até terminar.
+  servidor.closeIdleConnections?.();
+  const prazo = setTimeout(() => {
+    console.error('desligamento demorou demais, encerrando à força');
+    servidor.closeAllConnections?.();
+    process.exit(1);
+  }, 10_000);
+  prazo.unref();
+}
+
+if (require.main === module) {
+  subir()
+    .then(servidor => {
+      for (const sinal of ['SIGTERM', 'SIGINT']) process.on(sinal, () => desligar(servidor, sinal));
+    })
+    .catch(erro => {
+      console.error('falha ao subir:', erro);
+      process.exit(1);
+    });
+}
+
+module.exports = { app, subir };

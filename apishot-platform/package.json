@@ -5,6 +5,9 @@
   "main": "server/server.js",
   "scripts": {
     "start": "node server/server.js",
+    "bootstrap": "node server/bootstrap.js",
+    "migrate": "node server/migrate.js",
+    "seed": "node server/seedAgentes.js",
     "test": "node --test"
   },
   "dependencies": {

@@ -2,17 +2,23 @@ const express = require('express');
 const router = express.Router();
 const { senhaConfere, definirSenha, criarSessao, limparSessao, sessaoValida } = require('../auth');
 const asyncHandler = require('../asyncHandler');
+const { criarFreio } = require('../rateLimit');
+
+// senha única e compartilhada: sem freio, dá pra varrer o dicionário inteiro contra /login
+const freioLogin = criarFreio({ maxTentativas: 8, janelaMs: 15 * 60 * 1000, mensagem: 'muitas tentativas de login — espere alguns minutos' });
 
 router.get('/status', (req, res) => {
   res.json({ autenticado: sessaoValida(req) });
 });
 
-router.post('/login', asyncHandler(async (req, res) => {
+router.post('/login', freioLogin, asyncHandler(async (req, res) => {
   const { senha } = req.body;
   if (await senhaConfere(senha)) {
+    res.locals.limparFalhas();
     criarSessao(res);
     return res.json({ ok: true });
   }
+  res.locals.registrarFalha();
   res.status(401).json({ erro: 'senha incorreta' });
 }));
 
